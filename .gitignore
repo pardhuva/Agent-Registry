@@ -1,0 +1,21 @@
+# Virtual environments
+venv/
+venv312/
+
+# Environment variables
+.env
+
+# IDE files
+.vscode/
+
+# Log files
+*.log
+
+# Database files
+*.db
+
+# Python cache
+__pycache__/
+*.pyc
+
+.claude/
