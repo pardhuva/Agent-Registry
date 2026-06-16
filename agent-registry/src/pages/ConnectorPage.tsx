@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { Plus, Trash2, Info, CheckCircle2 } from "lucide-react";
 import { useData } from "../context/DataContext";
 import type { ConnectorPlatform } from "../types";
@@ -54,7 +54,7 @@ export function ConnectorPage({ platform }: { platform: ConnectorPlatform }) {
         </p>
       </div>
 
-      <section className="bg-white border border-gray-200 rounded-xl p-6 mb-6">
+      <section className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
         <h2 className="text-sm font-semibold text-gray-900 mb-4">Add a connection</h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -108,20 +108,20 @@ export function ConnectorPage({ platform }: { platform: ConnectorPlatform }) {
           Configured connections <span className="font-normal text-gray-500">({instances.length})</span>
         </h2>
         {instances.length === 0 ? (
-          <div className="bg-white border border-gray-200 rounded-xl p-8 text-center text-sm text-gray-500">
+          <div className="bg-white border border-gray-200 rounded-2xl p-8 text-center text-sm text-gray-500">
             No {spec.shortLabel} connections yet.
           </div>
         ) : (
           <ul className="space-y-2">
             {instances.map((inst) => (
-              <li key={inst.id} className="bg-white border border-gray-200 rounded-xl p-4 flex items-start justify-between gap-3">
+              <li key={inst.id} className="bg-white border border-gray-200 rounded-2xl p-4 flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="font-semibold text-gray-900">{inst.name}</p>
                   <div className="text-xs text-gray-500 mt-1 grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-0.5">
                     {spec.fields.map((f) => {
                       const v = inst.fields[f.key];
                       if (!v) return null;
-                      const display = f.type === "password" ? "•".repeat(Math.min(12, v.length)) : v;
+                      const display = f.type === "password" ? "â€¢".repeat(Math.min(12, v.length)) : v;
                       return (
                         <div key={f.key} className="truncate">
                           <span className="text-gray-400">{f.label}:</span>{" "}

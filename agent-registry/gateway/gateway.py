@@ -285,7 +285,17 @@ async def proxy(path: str, request: Request):
         except json.JSONDecodeError:
             pass
 
-    # Apply policy enforcement if agent is registered
+    # Always run baseline jailbreak + firewall checks (even without a registered agent)
+    messages = body.get("messages", [])
+    user_texts = [m.get("content", "") for m in messages if m.get("role") == "user" and isinstance(m.get("content"), str)]
+    full_text = " ".join(user_texts)
+    if full_text:
+        jb_match = _check_jailbreak(full_text)
+        if jb_match:
+            logger.warning(f"[gateway] Jailbreak blocked (baseline): {jb_match}")
+            raise HTTPException(status_code=403, detail=f"Request blocked: jailbreak attempt detected — '{jb_match}'")
+
+    # Apply per-agent policy enforcement if agent is registered
     policy = {}
     if agent_id and auth_token:
         policy = _fetch_agent_policy(agent_id, auth_token)
@@ -299,6 +309,18 @@ async def proxy(path: str, request: Request):
         if lower in ("host", "x-agent-id", "x-provider", "x-registry-token", "content-length"):
             continue
         forward_headers[key] = value
+
+    # Auto-confirm first instrumented call for this agent
+    if agent_id and auth_token:
+        try:
+            httpx.post(
+                f"{REGISTRY_URL}/api/capture/instrument",
+                headers={"Authorization": f"Bearer {auth_token}", "Content-Type": "application/json"},
+                json={"agentSlug": agent_id, "captureStyle": "gateway"},
+                timeout=3,
+            )
+        except Exception:
+            pass
 
     # Forward to upstream provider
     async with httpx.AsyncClient(timeout=120) as client:

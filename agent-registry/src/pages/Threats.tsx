@@ -86,7 +86,7 @@ export function Threats() {
   };
 
   return (
-    <div className="p-8 max-w-6xl">
+    <div className="p-8 max-w-6xl animate-fade-in">
       <div className="mb-6 flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
@@ -139,11 +139,11 @@ export function Threats() {
       </div>
 
       {!loaded ? (
-        <div className="bg-white border border-gray-200 rounded-xl p-12 text-center text-sm text-gray-500">
+        <div className="bg-white border border-gray-200/80 rounded-2xl shadow-card p-12 text-center text-sm text-gray-500">
           Loading findings…
         </div>
       ) : filtered.length === 0 ? (
-        <div className="bg-white border border-gray-200 rounded-xl p-12 text-center text-sm text-gray-500">
+        <div className="bg-white border border-gray-200/80 rounded-2xl shadow-card p-12 text-center text-sm text-gray-500">
           {findings.length === 0
             ? "No threats found. The fleet looks clean — protect agents to keep it that way."
             : "No findings match the current filters."}
@@ -155,7 +155,7 @@ export function Threats() {
             const a = agentById.get(f.agentId);
             const control = SECURITY_CONTROLS.find((c) => c.id === f.control);
             return (
-              <li key={f.id} className="bg-white border border-gray-200 rounded-xl p-4 flex items-start gap-3">
+              <li key={f.id} className="bg-white border border-gray-200/80 rounded-2xl shadow-card p-4 flex items-start gap-3">
                 <span className={`inline-flex items-center justify-center w-9 h-9 rounded-lg ${SEV_CHIP[f.severity]} shrink-0`}>
                   <Icon size={16} />
                 </span>
@@ -198,7 +198,7 @@ function Stat({ label, value, tone = "gray" }: { label: string; value: number; t
     rose: "bg-rose-50 border-rose-200 text-rose-900",
   };
   return (
-    <div className={`border rounded-xl px-4 py-3 ${cls[tone]}`}>
+    <div className={`border rounded-2xl px-4 py-3 shadow-card ${cls[tone]}`}>
       <div className="text-[11px] uppercase tracking-wider opacity-70">{label}</div>
       <div className="text-2xl font-bold">{value}</div>
     </div>

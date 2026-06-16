@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { Layers, Plus, Trash2, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 import { useData } from "../context/DataContext";
 import type { LangfuseInstance } from "../types";
@@ -68,9 +68,9 @@ export function LangfusePage() {
       </div>
       <p className="text-sm text-gray-500 mb-6">Connect Langfuse Cloud or a self-hosted instance. Agents are pinned to connected instances.</p>
 
-      <div className="bg-white border border-gray-200 rounded-xl p-6 mb-6">
+      <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
         <h2 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-1.5">
-          <span className="text-base">⚡</span> Add instance
+          <span className="text-base">âš¡</span> Add instance
         </h2>
         <form onSubmit={handleAdd} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
@@ -100,7 +100,7 @@ export function LangfusePage() {
               <input
                 value={publicKey}
                 onChange={(e) => setPublicKey(e.target.value)}
-                placeholder="pk-lf-…"
+                placeholder="pk-lf-â€¦"
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
                 required
               />
@@ -111,7 +111,7 @@ export function LangfusePage() {
                 type="password"
                 value={secretKey}
                 onChange={(e) => setSecretKey(e.target.value)}
-                placeholder="sk-lf-…"
+                placeholder="sk-lf-â€¦"
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
                 required
               />
@@ -149,13 +149,13 @@ export function LangfusePage() {
 
       <h2 className="text-sm font-semibold text-gray-900 mb-3">Connected</h2>
       {langfuseInstances.length === 0 ? (
-        <div className="border border-gray-200 rounded-xl bg-white px-5 py-8 text-center text-sm text-gray-500">
+        <div className="border border-gray-200 rounded-2xl bg-white px-5 py-8 text-center text-sm text-gray-500">
           No instances yet.
         </div>
       ) : (
         <div className="space-y-2">
           {langfuseInstances.map((inst) => (
-            <div key={inst.id} className="bg-white border border-gray-200 rounded-xl px-5 py-4 flex items-center justify-between">
+            <div key={inst.id} className="bg-white border border-gray-200 rounded-2xl px-5 py-4 flex items-center justify-between">
               <div>
                 <p className="font-medium text-gray-900 text-sm">{inst.name || "Langfuse Cloud"}</p>
                 <p className="text-xs text-gray-500 mt-0.5">{inst.hostUrl}</p>

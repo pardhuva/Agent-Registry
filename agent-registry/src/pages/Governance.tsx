@@ -49,7 +49,7 @@ export function Governance() {
   const unowned = useMemo(() => agents.filter((a) => !a.owner || !a.team), [agents]);
 
   return (
-    <div className="p-8 max-w-6xl">
+    <div className="p-8 max-w-6xl animate-fade-in">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
           <ShieldCheck size={22} />
@@ -72,7 +72,7 @@ export function Governance() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Over-privilege */}
-        <section className="bg-white border border-gray-200 rounded-xl p-5">
+        <section className="bg-white border border-gray-200/80 rounded-2xl p-5 shadow-card">
           <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2 mb-3">
             <ShieldAlert size={15} className="text-rose-600" />
             Over-privilege flags
@@ -104,7 +104,7 @@ export function Governance() {
         </section>
 
         {/* Duplicates */}
-        <section className="bg-white border border-gray-200 rounded-xl p-5">
+        <section className="bg-white border border-gray-200/80 rounded-2xl p-5 shadow-card">
           <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2 mb-3">
             <Copy size={15} className="text-amber-600" />
             Duplicate detection
@@ -134,7 +134,7 @@ export function Governance() {
         </section>
 
         {/* Unowned */}
-        <section className="bg-white border border-gray-200 rounded-xl p-5">
+        <section className="bg-white border border-gray-200/80 rounded-2xl p-5 shadow-card">
           <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2 mb-3">
             <ScanSearch size={15} className="text-amber-600" />
             Missing ownership
@@ -158,7 +158,7 @@ export function Governance() {
         </section>
 
         {/* Compliance summary */}
-        <section className="bg-white border border-gray-200 rounded-xl p-5">
+        <section className="bg-white border border-gray-200/80 rounded-2xl p-5 shadow-card">
           <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2 mb-3">
             <FileWarning size={15} className="text-blue-600" />
             Compliance overview
@@ -201,7 +201,7 @@ function Stat({ label, value, tone = "gray" }: { label: string; value: number; t
     rose: "bg-rose-50 border-rose-200 text-rose-900",
   };
   return (
-    <div className={`border rounded-xl px-4 py-3 ${toneCls[tone]}`}>
+    <div className={`border rounded-2xl px-4 py-3 shadow-card ${toneCls[tone]}`}>
       <div className="text-[11px] uppercase tracking-wider opacity-70">{label}</div>
       <div className="text-2xl font-bold">{value}</div>
     </div>

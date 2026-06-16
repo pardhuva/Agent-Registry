@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { Activity, Plus, Trash2, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
 import { useData } from "../context/DataContext";
 import type { HeliconeInstance } from "../types";
@@ -65,9 +65,9 @@ export function HeliconePage() {
       </div>
       <p className="text-sm text-gray-500 mb-6">Connect your Helicone account to monitor LLM costs, latency, and request traces.</p>
 
-      <div className="bg-white border border-gray-200 rounded-xl p-6 mb-6">
+      <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
         <h2 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-1.5">
-          <span className="text-base">⚡</span> Add instance
+          <span className="text-base">âš¡</span> Add instance
         </h2>
         <form onSubmit={handleAdd} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
@@ -86,7 +86,7 @@ export function HeliconePage() {
                 type="password"
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
-                placeholder="sk-helicone-…"
+                placeholder="sk-helicone-â€¦"
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
               />
@@ -129,17 +129,17 @@ export function HeliconePage() {
 
       <h2 className="text-sm font-semibold text-gray-900 mb-3">Connected</h2>
       {heliconeInstances.length === 0 ? (
-        <div className="border border-gray-200 rounded-xl bg-white px-5 py-8 text-center text-sm text-gray-500">
+        <div className="border border-gray-200 rounded-2xl bg-white px-5 py-8 text-center text-sm text-gray-500">
           No instances yet.
         </div>
       ) : (
         <div className="space-y-2">
           {heliconeInstances.map((inst) => (
-            <div key={inst.id} className="bg-white border border-gray-200 rounded-xl px-5 py-4 flex items-center justify-between">
+            <div key={inst.id} className="bg-white border border-gray-200 rounded-2xl px-5 py-4 flex items-center justify-between">
               <div>
                 <p className="font-medium text-gray-900 text-sm">{inst.name || "Helicone"}</p>
                 <p className="text-xs text-gray-500 mt-0.5">helicone.ai</p>
-                <p className="text-xs font-mono text-gray-400 mt-0.5">{inst.apiKey.slice(0, 12)}…</p>
+                <p className="text-xs font-mono text-gray-400 mt-0.5">{inst.apiKey.slice(0, 12)}â€¦</p>
               </div>
               <div className="flex items-center gap-3">
                 <span className="flex items-center gap-1 text-xs text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">

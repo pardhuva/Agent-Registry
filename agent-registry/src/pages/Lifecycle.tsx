@@ -23,7 +23,7 @@ function AgentMini({ agent, onMove }: { agent: Agent; onMove: (target: Lifecycle
   const check = next ? checkPromotion(agent, next) : null;
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-3 hover:shadow-sm transition-shadow">
+    <div className="bg-white border border-gray-200/80 rounded-xl p-3 hover:shadow-card-hover transition-all duration-300">
       <div className="flex items-start justify-between gap-2 mb-1.5">
         <button
           onClick={() => navigate(`/agents/${agent.id}`)}
@@ -105,7 +105,7 @@ export function Lifecycle() {
   }
 
   return (
-    <div className="p-8">
+    <div className="p-8 animate-fade-in">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
           <GitMerge size={22} />
@@ -118,7 +118,7 @@ export function Lifecycle() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         {LIFECYCLE_ORDER.map((stage) => (
-          <div key={stage} className="bg-gray-50 border border-gray-200 rounded-xl p-3">
+          <div key={stage} className="bg-white/60 border border-gray-200/80 rounded-2xl p-3 shadow-card">
             <div className="flex items-center justify-between mb-2 px-1">
               <span className={`text-xs uppercase tracking-wider font-semibold px-2 py-0.5 rounded border ${LIFECYCLE_STYLE[stage]}`}>
                 {LIFECYCLE_LABEL[stage]}

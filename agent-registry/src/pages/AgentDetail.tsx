@@ -184,7 +184,7 @@ export function AgentDetail() {
   } as const;
 
   return (
-    <div className="p-8 max-w-6xl">
+    <div className="p-8 max-w-6xl animate-fade-in">
       <button
         onClick={() => navigate("/agents")}
         className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 mb-5 transition-colors"
@@ -227,14 +227,14 @@ export function AgentDetail() {
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={() => navigate(`/agents/${agent.id}/edit`)}
-            className="flex items-center gap-1.5 text-sm text-gray-700 hover:text-gray-900 border border-gray-300 hover:border-gray-400 px-3 py-1.5 rounded-lg transition-colors"
+            className="flex items-center gap-1.5 text-sm text-gray-700 hover:text-gray-900 border border-gray-200 hover:border-gray-300 px-3 py-1.5 rounded-xl hover:shadow-sm transition-all"
           >
             <Pencil size={14} />
             Edit
           </button>
           <button
             onClick={() => setConfirmDelete(true)}
-            className="flex items-center gap-1.5 text-sm text-red-600 hover:text-red-700 border border-red-200 hover:border-red-300 px-3 py-1.5 rounded-lg transition-colors"
+            className="flex items-center gap-1.5 text-sm text-red-600 hover:text-red-700 border border-red-200 hover:border-red-300 px-3 py-1.5 rounded-xl hover:shadow-sm transition-all"
           >
             <Trash2 size={14} />
             Delete
@@ -254,7 +254,7 @@ export function AgentDetail() {
 
       {/* Lifecycle / Promotion gate */}
       {target && (
-        <div className="mb-6 bg-white border border-gray-200 rounded-xl p-5">
+        <div className="mb-6 bg-white border border-gray-200/80 rounded-2xl p-5 shadow-card">
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div>
               <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
@@ -268,8 +268,8 @@ export function AgentDetail() {
             <button
               onClick={handlePromote}
               disabled={!check?.ok}
-              className={`text-sm font-semibold px-4 py-2 rounded-lg transition-colors ${
-                check?.ok ? "bg-emerald-600 text-white hover:bg-emerald-700" : "bg-gray-100 text-gray-400 cursor-not-allowed"
+              className={`text-sm font-semibold px-4 py-2 rounded-xl transition-all ${
+                check?.ok ? "bg-gradient-to-r from-emerald-500 to-emerald-600 text-white hover:from-emerald-600 hover:to-emerald-700 shadow-md shadow-emerald-500/20" : "bg-gray-100 text-gray-400 cursor-not-allowed"
               }`}
             >
               Promote to {LIFECYCLE_LABEL[target]}
@@ -297,7 +297,7 @@ export function AgentDetail() {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
         {/* Identity & ownership */}
-        <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-3">
+        <div className="bg-white border border-gray-200/80 rounded-2xl p-5 space-y-3 shadow-card">
           <h2 className="text-sm font-semibold text-gray-900">Identity & ownership</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <MetaRow icon={Users} label="Team" value={agent.team || "—"} />
@@ -308,7 +308,7 @@ export function AgentDetail() {
         </div>
 
         {/* Dependencies */}
-        <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-3">
+        <div className="bg-white border border-gray-200/80 rounded-2xl p-5 space-y-3 shadow-card">
           <h2 className="text-sm font-semibold text-gray-900">Dependencies</h2>
           <div className="space-y-3">
             <MetaRow icon={Cpu} label="Models / LLMs" value={<Chips items={agent.dependencies?.models} mono />} />
@@ -319,7 +319,7 @@ export function AgentDetail() {
         </div>
 
         {/* Access scope & guardrails */}
-        <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-3">
+        <div className="bg-white border border-gray-200/80 rounded-2xl p-5 space-y-3 shadow-card">
           <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
             <Shield size={14} /> Access scope & guardrails
           </h2>
@@ -331,7 +331,7 @@ export function AgentDetail() {
         </div>
 
         {/* Compliance */}
-        <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-3">
+        <div className="bg-white border border-gray-200/80 rounded-2xl p-5 space-y-3 shadow-card">
           <h2 className="text-sm font-semibold text-gray-900">Compliance</h2>
           <div className="grid grid-cols-2 gap-3">
             <MetaRow icon={FileCheck2} label="Data classification" value={agent.compliance?.dataClassification || "—"} />
@@ -343,7 +343,7 @@ export function AgentDetail() {
       </div>
 
       {(agent.capabilitySpec?.inputs.length || agent.capabilitySpec?.outputs.length || agent.capabilitySpec?.examples.length) ? (
-        <div className="bg-white border border-gray-200 rounded-xl p-5 mb-6">
+        <div className="bg-white border border-gray-200/80 rounded-2xl p-5 mb-6 shadow-card">
           <h2 className="text-sm font-semibold text-gray-900 mb-3">Structured capability</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
             <div>
@@ -368,7 +368,7 @@ export function AgentDetail() {
         </div>
       ) : null}
 
-      <div className="bg-white border border-gray-200 rounded-xl p-5 mb-6">
+      <div className="bg-white border border-gray-200/80 rounded-2xl p-5 mb-6 shadow-card">
         <h2 className="text-sm font-semibold text-gray-700 mb-2">System Prompt</h2>
         <pre className="text-sm text-gray-800 whitespace-pre-wrap font-mono bg-gray-50 border border-gray-200 rounded-lg p-3 max-h-48 overflow-auto">
           {agent.systemPrompt}
@@ -391,7 +391,7 @@ export function AgentDetail() {
       </div>
 
       {/* Audit log */}
-      <div className="bg-white border border-gray-200 rounded-xl p-5 mb-6">
+      <div className="bg-white border border-gray-200/80 rounded-2xl p-5 mb-6 shadow-card">
         <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2 mb-3">
           <History size={15} />
           Audit log

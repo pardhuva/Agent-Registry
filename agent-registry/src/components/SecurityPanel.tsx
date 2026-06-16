@@ -1,4 +1,4 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import {
   Shield, ShieldCheck, ShieldOff, Eye, Route, Plug, Copy, Check, X, AlertTriangle,
 } from "lucide-react";
@@ -115,7 +115,7 @@ export function SecurityPanel({ agent }: { agent: Agent }) {
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-5">
+    <div className="bg-white border border-gray-200 rounded-2xl p-5">
       <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <div>
           <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
@@ -231,8 +231,8 @@ export function SecurityPanel({ agent }: { agent: Agent }) {
           onChange={(e) => setPolicy({ ...policy, failMode: e.target.value as PolicySchema["failMode"] }, "Updated fail mode")}
           className="text-xs border border-gray-300 rounded px-2 py-1"
         >
-          <option value="fail_open">fail_open — allow if core unreachable</option>
-          <option value="fail_closed">fail_closed — block if core unreachable</option>
+          <option value="fail_open">fail_open â€” allow if core unreachable</option>
+          <option value="fail_closed">fail_closed â€” block if core unreachable</option>
         </select>
 
         {policy.firewall.enabled && (
@@ -288,10 +288,10 @@ export function SecurityPanel({ agent }: { agent: Agent }) {
 
       {snippetFor && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setSnippetFor(null)}>
-          <div className="bg-white rounded-xl max-w-2xl w-full p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between mb-3">
               <div>
-                <h3 className="text-base font-semibold text-gray-900">Install snippet — required for enforcement</h3>
+                <h3 className="text-base font-semibold text-gray-900">Install snippet â€” required for enforcement</h3>
                 <p className="text-xs text-gray-500 mt-0.5">
                   Detection works without it; <strong>blocking requires sitting in the request path</strong>. Pick a capture style:
                 </p>
@@ -306,13 +306,13 @@ export function SecurityPanel({ agent }: { agent: Agent }) {
                 onClick={() => setSnippetStyle("sdk")}
                 className={`text-xs px-3 py-1.5 rounded border ${snippetStyle === "sdk" ? "bg-gray-900 text-white border-gray-900" : "bg-white border-gray-300 text-gray-700"}`}
               >
-                Style 1 — Sidecar SDK (Python)
+                Style 1 â€” Sidecar SDK (Python)
               </button>
               <button
                 onClick={() => setSnippetStyle("gateway")}
                 className={`text-xs px-3 py-1.5 rounded border ${snippetStyle === "gateway" ? "bg-gray-900 text-white border-gray-900" : "bg-white border-gray-300 text-gray-700"}`}
               >
-                Style 2 — Gateway base-URL
+                Style 2 â€” Gateway base-URL
               </button>
             </div>
 
@@ -330,7 +330,7 @@ export function SecurityPanel({ agent }: { agent: Agent }) {
               {!agent.firstInstrumentedAt ? (
                 <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">
                   <AlertTriangle size={12} />
-                  <span>Awaiting first event — badge will flip to <strong>Protected</strong> on first instrumented call.</span>
+                  <span>Awaiting first event â€” badge will flip to <strong>Protected</strong> on first instrumented call.</span>
                   <button
                     onClick={simulateInstall}
                     className="ml-2 text-xs font-medium underline hover:no-underline"
@@ -340,7 +340,7 @@ export function SecurityPanel({ agent }: { agent: Agent }) {
                 </div>
               ) : (
                 <span className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-2 py-1 flex items-center gap-1">
-                  <ShieldCheck size={12} /> Already protected — first event seen {new Date(agent.firstInstrumentedAt).toLocaleString()}
+                  <ShieldCheck size={12} /> Already protected â€” first event seen {new Date(agent.firstInstrumentedAt).toLocaleString()}
                 </span>
               )}
             </div>

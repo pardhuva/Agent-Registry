@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from "react-router-dom";
-import { Bot, LogOut, Layers, Zap, Activity, Radio, GitBranch, GitMerge, ShieldCheck, ScanSearch, Radar } from "lucide-react";
+import { Bot, LogOut, Layers, Zap, Activity, Radio, GitBranch, GitMerge, ShieldCheck, ScanSearch, Radar, Cpu } from "lucide-react";
 import { Logo } from "./Logo";
 import { useAuth } from "../context/AuthContext";
 import { CONNECTORS, CONNECTOR_ORDER } from "../lib/connectors";
@@ -11,6 +11,7 @@ const REGISTRY_NAV = [
   { to: "/governance", label: "Governance", icon: ShieldCheck },
   { to: "/threats", label: "Threats", icon: Radar },
   { to: "/discover", label: "Discover", icon: ScanSearch },
+  { to: "/capture", label: "SDK & Gateway", icon: Cpu },
 ];
 
 const OBS_NATIVE = [
@@ -38,14 +39,14 @@ function NavItem({ to, label, icon: Icon }: { to: string; label: string; icon: t
     <NavLink
       to={to}
       className={({ isActive }) =>
-        `flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-colors ${
+        `flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] font-medium transition-all duration-200 ${
           isActive
-            ? "bg-gray-100 text-gray-900 font-medium"
-            : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+            ? "bg-gradient-to-r from-indigo-50 to-violet-50 text-indigo-700 shadow-sm ring-1 ring-indigo-100"
+            : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
         }`
       }
     >
-      <Icon size={16} />
+      <Icon size={16} strokeWidth={1.8} />
       {label}
     </NavLink>
   );
@@ -61,42 +62,46 @@ export function Sidebar() {
   };
 
   return (
-    <aside className="fixed left-0 top-0 h-full w-56 bg-white border-r border-gray-200 flex flex-col">
-      <div className="px-4 py-4 border-b border-gray-200">
-        <div className="flex items-center gap-2">
-          <Logo size={22} />
-          <span className="font-semibold text-gray-900 text-sm">Agent Registry</span>
+    <aside className="fixed left-0 top-0 h-full w-[260px] bg-white/70 backdrop-blur-2xl border-r border-slate-200/50 flex flex-col z-10">
+      <div className="px-5 py-5">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-indigo-500 via-violet-500 to-purple-500 flex items-center justify-center shadow-lg shadow-indigo-500/25">
+            <Logo size={18} className="text-white" />
+          </div>
+          <div>
+            <span className="font-bold text-slate-800 text-sm tracking-tight">Agent Registry</span>
+            <p className="text-[10px] text-slate-400 font-medium uppercase tracking-[0.15em]">Control Plane</p>
+          </div>
         </div>
-        <p className="text-[10px] text-gray-500 mt-0.5 ml-7 uppercase tracking-wider">Control Plane</p>
       </div>
 
-      <nav className="flex-1 p-3 space-y-4 overflow-y-auto">
+      <nav className="flex-1 px-3 pb-3 space-y-6 overflow-y-auto">
         <div>
-          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-3 mb-1">Registry</p>
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-[0.15em] px-3 mb-2">Registry</p>
           <div className="space-y-0.5">
             {REGISTRY_NAV.map((n) => <NavItem key={n.to} {...n} />)}
           </div>
         </div>
         <div>
-          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-3 mb-1">Native LLM observability</p>
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-[0.15em] px-3 mb-2">Observability</p>
           <div className="space-y-0.5">
             {OBS_NATIVE.map((n) => <NavItem key={n.to} {...n} />)}
           </div>
         </div>
         <div>
-          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-3 mb-1">Hyperscaler platforms</p>
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-[0.15em] px-3 mb-2">Hyperscalers</p>
           <div className="space-y-0.5">
             {OBS_HYPERSCALER.map((n) => <NavItem key={n.to} {...n} />)}
           </div>
         </div>
       </nav>
 
-      <div className="p-3 border-t border-gray-200">
+      <div className="px-3 py-3 border-t border-slate-100">
         <button
           onClick={handleLogout}
-          className="flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-900 transition-colors w-full"
+          className="flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] font-medium text-slate-400 hover:bg-slate-50 hover:text-slate-600 transition-all duration-200 w-full"
         >
-          <LogOut size={16} />
+          <LogOut size={16} strokeWidth={1.8} />
           Sign out
         </button>
       </div>

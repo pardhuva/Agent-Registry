@@ -16,6 +16,7 @@ import { Lifecycle } from "./pages/Lifecycle";
 import { Governance } from "./pages/Governance";
 import { Discover } from "./pages/Discover";
 import { Threats } from "./pages/Threats";
+import { CaptureAdapters } from "./pages/CaptureAdapters";
 import { ConnectorPage } from "./pages/ConnectorPage";
 import { CONNECTOR_ORDER } from "./lib/connectors";
 
@@ -48,6 +49,7 @@ function AppRoutes() {
         <Route path="/governance" element={<Governance />} />
         <Route path="/discover" element={<Discover />} />
         <Route path="/threats" element={<Threats />} />
+        <Route path="/capture" element={<CaptureAdapters />} />
         {CONNECTOR_ORDER.map((p) => (
           <Route key={p} path={`/connectors/${p}`} element={<ConnectorPage platform={p} />} />
         ))}
