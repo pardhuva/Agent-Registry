@@ -10,7 +10,7 @@ export function protectionOf(a: Agent): ProtectionStatus {
 export function lastActivityOf(a: Agent): string {
   const times = (a.auditLog ?? []).map((e) => e.at).filter(Boolean);
   if (a.createdAt) times.push(a.createdAt);
-  if (times.length === 0) return "";
+  if (times.length === 0) return "0000-01-01T00:00:00Z";
   return times.reduce((max, t) => (t > max ? t : max), times[0]);
 }
 

@@ -38,7 +38,8 @@ const RANGES = [
 ] as const;
 
 function inRange(at: string, range: string): boolean {
-  if (range === "all" || !at) return true;
+  if (range === "all") return true;
+  if (!at) return false;
   const t = new Date(at).getTime();
   if (range === "today") return new Date(at).toDateString() === new Date().toDateString();
   const days = range === "7d" ? 7 : 30;

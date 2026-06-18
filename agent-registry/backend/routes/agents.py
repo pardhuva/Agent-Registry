@@ -1,6 +1,14 @@
 import re
 from datetime import datetime, timezone
 
+
+def _utc_iso(dt: datetime | None) -> str:
+    if not dt:
+        return ""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.isoformat()
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -110,7 +118,7 @@ def _agent_to_out(a: Agent) -> dict:
                 "severity": t.severity,
                 "summary": t.summary,
                 "detail": t.detail,
-                "detectedAt": t.detected_at.isoformat() if t.detected_at else "",
+                "detectedAt": _utc_iso(t.detected_at),
                 "principal": t.principal,
             }
             for t in (a.threats or [])

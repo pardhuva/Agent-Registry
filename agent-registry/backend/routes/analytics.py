@@ -17,6 +17,14 @@ import re
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 
+
+def _utc_iso(dt: datetime | None) -> str:
+    if not dt:
+        return ""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.isoformat()
+
 import httpx
 from fastapi import APIRouter, Depends
 from sqlalchemy import select
@@ -65,7 +73,7 @@ async def repeat_offenders(db: AsyncSession = Depends(get_db), user: User = Depe
         sev_rank = {"low": 0, "medium": 1, "high": 2, "critical": 3}
         if sev_rank.get(f.severity, 0) > sev_rank.get(entry["maxSeverity"], 0):
             entry["maxSeverity"] = f.severity
-        ts = f.detected_at.isoformat() if f.detected_at else None
+        ts = _utc_iso(f.detected_at) or None
         if ts and (entry["lastSeen"] is None or ts > entry["lastSeen"]):
             entry["lastSeen"] = ts
 
