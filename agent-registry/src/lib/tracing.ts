@@ -95,10 +95,11 @@ export async function fetchOtelTraces(
 
 export async function fetchLangfuseTraces(
   instance: LangfuseInstance,
-  agentSlug: string
+  agentSlug: string,
+  limit = 50,
 ): Promise<Trace[]> {
   const credentials = btoa(`${instance.publicKey}:${instance.secretKey}`);
-  const url = `${instance.hostUrl.replace(/\/$/, "")}/api/public/traces?name=${encodeURIComponent(agentSlug)}&limit=20`;
+  const url = `${instance.hostUrl.replace(/\/$/, "")}/api/public/traces?name=${encodeURIComponent(agentSlug)}&limit=${limit}`;
 
   const res = await fetch(url, {
     headers: { Authorization: `Basic ${credentials}` },
@@ -124,6 +125,18 @@ export async function fetchLangfuseTraces(
     platform: "langfuse",
     url: `${instance.hostUrl.replace(/\/$/, "")}/trace/${t.id}`,
   }));
+}
+
+export async function fetchLangfuseTraceTotal(
+  instance: LangfuseInstance,
+  agentSlug: string,
+): Promise<number> {
+  const credentials = btoa(`${instance.publicKey}:${instance.secretKey}`);
+  const url = `${instance.hostUrl.replace(/\/$/, "")}/api/public/traces?name=${encodeURIComponent(agentSlug)}&limit=1`;
+  const res = await fetch(url, { headers: { Authorization: `Basic ${credentials}` } });
+  if (!res.ok) return 0;
+  const data = await res.json();
+  return (data.meta?.totalItems as number) ?? (data.data?.length as number) ?? 0;
 }
 
 export async function fetchLangSmithTraces(

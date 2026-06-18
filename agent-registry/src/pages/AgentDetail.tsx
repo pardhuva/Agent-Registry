@@ -9,6 +9,7 @@ import { useData } from "../context/DataContext";
 import { TraceList } from "../components/TraceList";
 import {
   fetchLangfuseTraces,
+  fetchLangfuseTraceTotal,
   fetchLangSmithTraces,
   fetchHeliconeTraces,
   fetchOtelTraces,
@@ -222,9 +223,9 @@ function buildChain(agent: AgentType, allAgents: AgentType[]): AgentType[] {
   return [...callers, agent, ...callees];
 }
 
-function AgentInvocationPanel({ agent, allAgents, traces, loading, onNavigate }: {
+function AgentInvocationPanel({ agent, allAgents, traces, total, loading, onNavigate }: {
   agent: AgentType; allAgents: AgentType[]; traces: Trace[];
-  loading: boolean; onNavigate: (id: string) => void;
+  total: number | null; loading: boolean; onNavigate: (id: string) => void;
 }) {
   const callers = allAgents.filter(a =>
     a.id !== agent.id && (a.dependencies?.agents ?? []).includes(agent.slug)
@@ -235,13 +236,12 @@ function AgentInvocationPanel({ agent, allAgents, traces, loading, onNavigate }:
   const chain = buildChain(agent, allAgents);
 
   const recentTraces = traces.slice(0, 12);
-  const totalCalls   = traces.length;
+  const totalCalls   = total ?? traces.length;   // real total from Langfuse meta, fallback to fetched count
   const successCount = traces.filter(t => t.status === "success").length;
 
-  // Count calls per hour over last 24h
   const now = Date.now();
-  const last24h  = traces.filter(t => now - new Date(t.timestamp).getTime() < 86_400_000).length;
-  const last1h   = traces.filter(t => now - new Date(t.timestamp).getTime() <  3_600_000).length;
+  const last24h = traces.filter(t => now - new Date(t.timestamp).getTime() < 86_400_000).length;
+  const last1h  = traces.filter(t => now - new Date(t.timestamp).getTime() <  3_600_000).length;
 
   if (!callers.length && !callees.length && !loading && !traces.length) return null;
 
@@ -379,9 +379,9 @@ function AgentInvocationPanel({ agent, allAgents, traces, loading, onNavigate }:
                 ))}
               </tbody>
             </table>
-            {traces.length > 12 && (
+            {totalCalls > 12 && (
               <div className="text-center py-2 text-xs text-gray-400 bg-gray-50 border-t border-gray-100">
-                Showing 12 of {traces.length} runs
+                Showing {Math.min(12, traces.length)} of {totalCalls} runs
               </div>
             )}
           </div>
@@ -430,6 +430,7 @@ export function AgentDetail() {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [invTraces, setInvTraces] = useState<Trace[]>([]);
   const [invLoading, setInvLoading] = useState(false);
+  const [invTotal, setInvTotal] = useState<number | null>(null);
 
   const loadTraces = async (platform: Platform) => {
     if (!agent) return;
@@ -472,10 +473,16 @@ export function AgentDetail() {
 
   // Background-fetch Langfuse traces for the invocation panel
   useEffect(() => {
-    if (!agent || !langfuseInstances.length) { setInvTraces([]); return; }
+    if (!agent || !langfuseInstances.length) { setInvTraces([]); setInvTotal(null); return; }
     setInvLoading(true);
-    Promise.all(langfuseInstances.map(i => fetchLangfuseTraces(i, agent.slug)))
-      .then(r => setInvTraces(r.flat().sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())))
+    Promise.all([
+      Promise.all(langfuseInstances.map(i => fetchLangfuseTraces(i, agent.slug))),
+      Promise.all(langfuseInstances.map(i => fetchLangfuseTraceTotal(i, agent.slug))),
+    ])
+      .then(([traceResults, totals]) => {
+        setInvTraces(traceResults.flat().sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
+        setInvTotal(totals.reduce((s, n) => s + n, 0));
+      })
       .catch(() => {})
       .finally(() => setInvLoading(false));
   }, [agent?.id, langfuseInstances]);
@@ -733,6 +740,7 @@ export function AgentDetail() {
         agent={agent}
         allAgents={agents}
         traces={invTraces}
+        total={invTotal}
         loading={invLoading}
         onNavigate={(id) => navigate(`/agents/${id}`)}
       />
