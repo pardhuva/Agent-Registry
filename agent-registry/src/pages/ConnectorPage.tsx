@@ -121,7 +121,7 @@ export function ConnectorPage({ platform }: { platform: ConnectorPlatform }) {
                     {spec.fields.map((f) => {
                       const v = inst.fields[f.key];
                       if (!v) return null;
-                      const display = f.type === "password" ? "â€¢".repeat(Math.min(12, v.length)) : v;
+                      const display = f.type === "password" ? "•".repeat(Math.min(12, v.length)) : v;
                       return (
                         <div key={f.key} className="truncate">
                           <span className="text-gray-400">{f.label}:</span>{" "}

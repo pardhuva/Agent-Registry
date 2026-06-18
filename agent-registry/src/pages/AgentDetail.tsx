@@ -140,7 +140,7 @@ export function AgentDetail() {
   useEffect(() => {
     if (agent && agent.platforms.includes(activeTab)) loadTraces(activeTab);
     else { setTraces([]); setError(null); setLoading(false); }
-  }, [activeTab, agent?.id]);
+  }, [activeTab, agent?.id, langfuseInstances, langsmithInstances, heliconeInstances, otelInstances]);
 
   if (!agent) {
     return (

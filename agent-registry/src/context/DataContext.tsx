@@ -34,6 +34,7 @@ interface DataContextType {
   removeConnector: (id: string) => Promise<void>;
   connectorsFor: (platform: ConnectorPlatform) => ConnectorInstance[];
   refreshAgents: () => Promise<void>;
+  agentsError: string | null;
 }
 
 const DataContext = createContext<DataContextType | null>(null);
@@ -47,11 +48,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [heliconeInstances, setHelicone] = useState<HeliconeInstance[]>([]);
   const [otelInstances, setOtel] = useState<OtelInstance[]>([]);
   const [connectorInstances, setConnectors] = useState<ConnectorInstance[]>([]);
+  const [agentsError, setAgentsError] = useState<string | null>(null);
 
   const refreshAgents = useCallback(async () => {
     if (!user) return;
-    const data = await api.agents.list();
-    setAgents(data);
+    try {
+      const data = await api.agents.list();
+      setAgents(data);
+      setAgentsError(null);
+    } catch (e) {
+      setAgentsError(e instanceof Error ? e.message : "Failed to load agents");
+    }
   }, [user]);
 
   useEffect(() => {
@@ -202,6 +209,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         removeConnector,
         connectorsFor,
         refreshAgents,
+        agentsError,
       }}
     >
       {children}

@@ -239,7 +239,7 @@ export function AgentForm({ initial, mode, submitLabel, onSubmit, onCancel }: Pr
     e.preventDefault();
     if (!v.name.trim()) return setError("Name is required.");
     if (!v.slug.trim()) return setError("Slug is required.");
-    if (!v.owner.trim() || !v.team.trim()) return setError("Owner and team are required â€” every agent needs an identity.");
+    if (!v.owner.trim() || !v.team.trim()) return setError("Owner and team are required — every agent needs an identity.");
     if (!v.systemPrompt.trim()) return setError("System prompt is required.");
     if (mode === "create" && v.lifecycle === "prod") return setError("Agents cannot be created directly in production. Promote through the Lifecycle board.");
     setError("");
@@ -326,7 +326,7 @@ export function AgentForm({ initial, mode, submitLabel, onSubmit, onCancel }: Pr
       <section className="bg-white border border-gray-200 rounded-2xl p-6 space-y-4">
         <div>
           <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wider">Capability & lifecycle</h2>
-          <p className="text-xs text-gray-500 mt-1">Searchable, discoverable description â€” and where this agent lives today.</p>
+          <p className="text-xs text-gray-500 mt-1">Searchable, discoverable description — and where this agent lives today.</p>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Capability statement</label>
@@ -339,7 +339,7 @@ export function AgentForm({ initial, mode, submitLabel, onSubmit, onCancel }: Pr
 
         <div className="border border-gray-200 rounded-lg p-4 bg-gray-50 space-y-3">
           <p className="text-xs text-gray-600">
-            <strong>Structured capability</strong> â€” discoverable by other agents via standardized inputs/outputs.
+            <strong>Structured capability</strong> — discoverable by other agents via standardized inputs/outputs.
           </p>
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -359,7 +359,7 @@ export function AgentForm({ initial, mode, submitLabel, onSubmit, onCancel }: Pr
             <label className="block text-xs font-medium text-gray-700 mb-1">Example invocations (one per line)</label>
             <textarea value={capExamples} onChange={(e) => setCapExamples(e.target.value)} rows={2}
               className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-gray-900"
-              placeholder='Refund order ORD-123 â€” reason: "wrong size"' />
+              placeholder='Refund order ORD-123 — reason: "wrong size"' />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-4">
@@ -388,7 +388,7 @@ export function AgentForm({ initial, mode, submitLabel, onSubmit, onCancel }: Pr
           <textarea
             value={v.systemPrompt} onChange={(e) => set("systemPrompt", e.target.value)} rows={4} required
             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-gray-900 resize-vertical"
-            placeholder="You are a helpful assistant thatâ€¦"
+            placeholder="You are a helpful assistant that…"
           />
         </div>
       </section>
@@ -431,7 +431,7 @@ export function AgentForm({ initial, mode, submitLabel, onSubmit, onCancel }: Pr
       <section className="bg-white border border-gray-200 rounded-2xl p-6 space-y-4">
         <div>
           <h2 className="text-sm font-semibold text-gray-900 uppercase tracking-wider">Access scope & guardrails</h2>
-          <p className="text-xs text-gray-500 mt-1">Exactly what this agent is permitted to touch â€” and the policy boundaries it must operate within.</p>
+          <p className="text-xs text-gray-500 mt-1">Exactly what this agent is permitted to touch — and the policy boundaries it must operate within.</p>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Access scope (comma-separated)</label>

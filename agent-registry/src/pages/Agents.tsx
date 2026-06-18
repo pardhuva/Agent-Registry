@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus, Search, Bot, Layers, Zap, Activity, Radio, Tag, Download, Users, AlertTriangle, User2 } from "lucide-react";
+import { Plus, Search, Bot, Download, AlertTriangle, User2 } from "lucide-react";
 import { CONNECTORS } from "../lib/connectors";
 import { useData } from "../context/DataContext";
 import type { Agent, Platform, LifecycleStage } from "../types";
@@ -262,13 +262,6 @@ const CREWAI_AGENTS: Omit<Agent, "id" | "createdAt" | "userId">[] = [
   },
 ];
 
-const PLATFORM_ICONS: Record<Platform, typeof Layers> = {
-  langfuse: Layers, langsmith: Zap, helicone: Activity, otel: Radio,
-  bedrock: CONNECTORS.bedrock.icon, "azure-foundry": CONNECTORS["azure-foundry"].icon,
-  vertex: CONNECTORS.vertex.icon, "azure-monitor": CONNECTORS["azure-monitor"].icon,
-  phoenix: CONNECTORS.phoenix.icon, datadog: CONNECTORS.datadog.icon, traceloop: CONNECTORS.traceloop.icon,
-};
-
 const PLATFORM_CHIP: Record<Platform, string> = {
   langfuse: "bg-violet-100 text-violet-700 ring-violet-200",
   langsmith: "bg-amber-100 text-amber-700 ring-amber-200",
@@ -351,7 +344,6 @@ function AgentCard({ agent, duplicateOf }: { agent: Agent; duplicateOf: string[]
       {/* Row 4: Platform chips + protection */}
       <div className="flex items-center gap-1.5 flex-wrap mb-4">
         {agent.platforms.map((p) => {
-          const Icon = PLATFORM_ICONS[p];
           return (
             <span key={p} className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded-full ring-1 ${PLATFORM_CHIP[p]}`}>
               <span className="w-1.5 h-1.5 rounded-full bg-current opacity-70" />
@@ -390,7 +382,7 @@ function AgentCard({ agent, duplicateOf }: { agent: Agent; duplicateOf: string[]
 }
 
 export function Agents() {
-  const { agents, addAgent, updateAgent } = useData();
+  const { agents, addAgent, updateAgent, agentsError, refreshAgents } = useData();
   const navigate = useNavigate();
   const [query, setQuery] = useState("");
   const [stageFilter, setStageFilter] = useState<LifecycleStage | "all">("all");
@@ -471,6 +463,20 @@ export function Agents() {
           </button>
         </div>
       </div>
+
+      {agentsError && (
+        <div className="mb-6 flex items-center justify-between gap-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          <span className="flex items-center gap-2">
+            <AlertTriangle size={15} /> Couldn't load agents: {agentsError}
+          </span>
+          <button
+            onClick={() => refreshAgents()}
+            className="text-xs font-semibold border border-rose-300 rounded-lg px-3 py-1 hover:bg-rose-100"
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* Search + Filters */}
       <div className="flex items-center gap-4 mb-6">

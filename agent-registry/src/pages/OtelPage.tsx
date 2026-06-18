@@ -71,7 +71,7 @@ export function OtelPage() {
     setTestResult(null);
     try {
       await testOtel({ name, endpoint, backend, queryUrl, serviceName, headers: headersText });
-      addOtel({
+      await addOtel({
         name: name || "OpenTelemetry",
         endpoint,
         backend,
@@ -99,7 +99,7 @@ export function OtelPage() {
 
       <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
         <h2 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-1.5">
-          <span className="text-base">âš¡</span> Add instance
+          <span className="text-base">⚡</span> Add instance
         </h2>
         <form onSubmit={handleAdd} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
@@ -166,7 +166,7 @@ export function OtelPage() {
               value={headersText}
               onChange={(e) => setHeadersText(e.target.value)}
               rows={2}
-              placeholder="Authorization: Bearer â€¦&#10;X-Org-ID: â€¦"
+              placeholder="Authorization: Bearer …&#10;X-Org-ID: …"
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
           </div>
@@ -217,9 +217,9 @@ export function OtelPage() {
               <div>
                 <p className="font-medium text-gray-900 text-sm">{inst.name}</p>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  {inst.backend} Â· service: <span className="font-mono">{inst.serviceName}</span>
+                  {inst.backend} · service: <span className="font-mono">{inst.serviceName}</span>
                 </p>
-                <p className="text-xs text-gray-400 mt-0.5">{inst.endpoint} â†’ {inst.queryUrl}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{inst.endpoint} → {inst.queryUrl}</p>
               </div>
               <div className="flex items-center gap-3">
                 <span className="flex items-center gap-1 text-xs text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">

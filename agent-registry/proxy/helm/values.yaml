@@ -1,0 +1,39 @@
+# IBaseIT Style 3 Egress Proxy — Helm values
+replicaCount: 2  # HA per spec
+
+image:
+  repository: ibaseit/egress-envoy
+  tag: "0.1.0"
+  pullPolicy: IfNotPresent
+
+registry:
+  # The IBaseIT inspection core that resolves policy and runs guardrails.
+  url: "https://registry.ibaseit.com"
+  token: ""  # set via --set or a sealed secret
+
+# fail_open: allow traffic if the core is unreachable (low risk tiers)
+# fail_closed: block traffic if the core is unreachable (high risk tiers)
+failMode: fail_open
+
+tlsInterception:
+  enabled: true   # opt-in; metadata-only capture when disabled
+  caSecret: ibaseit-egress-ca
+
+# Inline ext_authz latency budget (ms) before failMode applies.
+latencyBudgetMs: 250
+
+upstreams:
+  - host: api.openai.com
+  - host: api.anthropic.com
+  - host: api.groq.com
+
+resources:
+  requests:
+    cpu: 250m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 512Mi
+
+otel:
+  endpoint: ""  # OTLP collector; spans emitted alongside the customer's existing tracing

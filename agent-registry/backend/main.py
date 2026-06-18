@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from config import settings
 from database import init_db
-from routes import agents, auth, capture, connectors, graph, ingestion, threats
+from routes import agents, analytics, auth, capture, connectors, graph, ingestion, threats
 
 _gateway_process = None
 
@@ -70,6 +70,7 @@ app.include_router(threats.router)
 app.include_router(graph.router)
 app.include_router(ingestion.router)
 app.include_router(capture.router)
+app.include_router(analytics.router)
 
 
 @app.get("/api/health")

@@ -50,7 +50,7 @@ export function LangSmithPage() {
     setTestResult(null);
     try {
       await testLangSmith({ name, apiUrl, apiKey, project });
-      addLangSmith({ name: name || "LangSmith", apiUrl, apiKey, project });
+      await addLangSmith({ name: name || "LangSmith", apiUrl, apiKey, project });
       reset();
     } catch (e) {
       setTestResult({ ok: false, msg: e instanceof Error ? e.message : "Connection failed" });
@@ -69,7 +69,7 @@ export function LangSmithPage() {
 
       <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
         <h2 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-1.5">
-          <span className="text-base">âš¡</span> Add instance
+          <span className="text-base">⚡</span> Add instance
         </h2>
         <form onSubmit={handleAdd} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
@@ -99,7 +99,7 @@ export function LangSmithPage() {
                 type="password"
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
-                placeholder="ls__â€¦"
+                placeholder="ls__…"
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
                 required
               />

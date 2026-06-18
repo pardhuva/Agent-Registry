@@ -48,7 +48,7 @@ export function HeliconePage() {
     setTestResult(null);
     try {
       await testHelicone({ name, apiKey });
-      addHelicone({ name: name || "Helicone", apiKey });
+      await addHelicone({ name: name || "Helicone", apiKey });
       reset();
     } catch (e) {
       setTestResult({ ok: false, msg: e instanceof Error ? e.message : "Connection failed" });
@@ -67,7 +67,7 @@ export function HeliconePage() {
 
       <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
         <h2 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-1.5">
-          <span className="text-base">âš¡</span> Add instance
+          <span className="text-base">⚡</span> Add instance
         </h2>
         <form onSubmit={handleAdd} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
@@ -86,7 +86,7 @@ export function HeliconePage() {
                 type="password"
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
-                placeholder="sk-helicone-â€¦"
+                placeholder="sk-helicone-…"
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
               />
@@ -139,7 +139,7 @@ export function HeliconePage() {
               <div>
                 <p className="font-medium text-gray-900 text-sm">{inst.name || "Helicone"}</p>
                 <p className="text-xs text-gray-500 mt-0.5">helicone.ai</p>
-                <p className="text-xs font-mono text-gray-400 mt-0.5">{inst.apiKey.slice(0, 12)}â€¦</p>
+                <p className="text-xs font-mono text-gray-400 mt-0.5">{inst.apiKey.slice(0, 12)}…</p>
               </div>
               <div className="flex items-center gap-3">
                 <span className="flex items-center gap-1 text-xs text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-full">

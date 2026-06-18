@@ -4,19 +4,24 @@ Capture adapter routes — SDK & Gateway integration endpoints.
 These endpoints are called by the Python SDK (Style 1) and the Gateway (Style 2)
 to look up agent policies, confirm first instrumented call, and report telemetry.
 """
+import os
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Header, Query
+import httpx
+from fastapi import APIRouter, Depends, HTTPException, Header, Query, Request
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+import llm_detect
 from auth import get_current_user
 from database import get_db
 from models import Agent, AuditEvent, ThreatFinding, User
 
 router = APIRouter(prefix="/api/capture", tags=["capture"])
+
+GATEWAY_URL = os.getenv("IBASEIT_GATEWAY_URL", "http://localhost:8001")
 
 
 class InstrumentRequest(BaseModel):
@@ -179,11 +184,122 @@ async def report_threat(
 @router.get("/gateway/status", response_model=GatewayStatusResponse)
 async def gateway_status():
     """Check gateway availability and config."""
-    import httpx
     connected = False
     try:
-        resp = httpx.get("http://localhost:8001/health", timeout=3)
+        async with httpx.AsyncClient(timeout=3) as client:
+            resp = await client.get(f"{GATEWAY_URL}/health")
         connected = resp.status_code == 200
     except Exception:
         pass
     return GatewayStatusResponse(registryConnected=connected)
+
+
+# ── Live gateway test call (powers the J2 "send a real call" demo) ──────────
+
+class TestCallRequest(BaseModel):
+    agentId: str | None = None
+    agentSlug: str | None = None
+    prompt: str = "Hello! Briefly, what can you help me with?"
+    provider: str = "groq"
+
+
+class TestCallResponse(BaseModel):
+    ok: bool
+    blocked: bool
+    status: int
+    enforced: bool
+    protectionStatus: str
+    captureStyle: str | None = None
+    detail: str
+    responsePreview: str | None = None
+    policyEnforcedHeader: bool = False
+
+
+@router.post("/test-call", response_model=TestCallResponse)
+async def gateway_test_call(
+    body: TestCallRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """
+    Send a *real* request through the live IBaseIT gateway for an agent, using
+    the configured provider key. The gateway fetches the agent's policy,
+    enforces it (may block), forwards to the provider, and confirms the first
+    instrumented call — flipping the badge to Protected for real.
+    """
+    if body.agentId:
+        res = await db.execute(select(Agent).where(Agent.id == body.agentId, Agent.user_id == user.id))
+    elif body.agentSlug:
+        res = await db.execute(select(Agent).where(Agent.slug == body.agentSlug, Agent.user_id == user.id))
+    else:
+        raise HTTPException(status_code=400, detail="Provide agentId or agentSlug")
+    agent = res.scalar_one_or_none()
+    if not agent:
+        raise HTTPException(status_code=404, detail="Agent not found")
+
+    provider = body.provider.lower()
+    provider_key = llm_detect._key("GROQ_API_KEY" if provider == "groq" else "OPENAI_API_KEY")
+    if not provider_key:
+        raise HTTPException(status_code=400, detail=f"No API key configured for provider '{provider}'")
+    model = "llama-3.3-70b-versatile" if provider == "groq" else "gpt-4o-mini"
+
+    # The token the browser sent us is forwarded so the gateway can read policy.
+    auth_header = request.headers.get("authorization", "")
+    registry_token = auth_header.split(" ", 1)[1] if auth_header.lower().startswith("bearer ") else ""
+
+    headers = {
+        "Authorization": f"Bearer {provider_key}",
+        "Content-Type": "application/json",
+        "X-Agent-Id": agent.slug,
+        "X-Provider": provider,
+        "X-Registry-Token": registry_token,
+    }
+    payload = {
+        "model": model,
+        "messages": [{"role": "user", "content": body.prompt}],
+        "max_tokens": 120,
+    }
+
+    blocked = False
+    status_code = 0
+    preview = None
+    policy_enforced = False
+    detail = ""
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            resp = await client.post(f"{GATEWAY_URL}/v1/chat/completions", headers=headers, json=payload)
+        status_code = resp.status_code
+        policy_enforced = resp.headers.get("x-ibaseit-policy-enforced") == "true"
+        if resp.status_code == 403:
+            blocked = True
+            try:
+                detail = resp.json().get("detail", "Blocked by policy")
+            except Exception:
+                detail = "Blocked by policy"
+        elif resp.status_code == 200:
+            try:
+                data = resp.json()
+                preview = (data.get("choices", [{}])[0].get("message", {}).get("content") or "")[:280]
+            except Exception:
+                preview = None
+            detail = "Request passed policy and reached the model."
+        else:
+            detail = f"Gateway returned {resp.status_code}: {resp.text[:200]}"
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Gateway unreachable at {GATEWAY_URL}: {e}")
+
+    # Re-read the agent — the gateway will have confirmed instrumentation.
+    await db.refresh(agent)
+
+    return TestCallResponse(
+        ok=status_code in (200, 403),
+        blocked=blocked,
+        status=status_code,
+        enforced=policy_enforced or blocked,
+        protectionStatus=agent.protection_status or "unprotected",
+        captureStyle=agent.capture_style,
+        detail=detail,
+        responsePreview=preview,
+        policyEnforcedHeader=policy_enforced,
+    )

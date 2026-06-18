@@ -1,5 +1,8 @@
 import { NavLink, useNavigate } from "react-router-dom";
-import { Bot, LogOut, Layers, Zap, Activity, Radio, GitBranch, GitMerge, ShieldCheck, ScanSearch, Radar, Cpu } from "lucide-react";
+import {
+  Bot, LogOut, Layers, Zap, Activity, Radio, GitBranch, GitMerge, ShieldCheck, ScanSearch, Radar, Cpu,
+  BarChart3, Users, ShieldAlert, Eraser, Network, Clock, TrendingUp,
+} from "lucide-react";
 import { Logo } from "./Logo";
 import { useAuth } from "../context/AuthContext";
 import { CONNECTORS, CONNECTOR_ORDER } from "../lib/connectors";
@@ -12,6 +15,16 @@ const REGISTRY_NAV = [
   { to: "/threats", label: "Threats", icon: Radar },
   { to: "/discover", label: "Discover", icon: ScanSearch },
   { to: "/capture", label: "SDK & Gateway", icon: Cpu },
+];
+
+const ANALYTICS_NAV = [
+  { to: "/observability", label: "Observability", icon: BarChart3 },
+  { to: "/user-analytics", label: "User Analytics", icon: Users },
+  { to: "/security-center", label: "Security Center", icon: ShieldAlert },
+  { to: "/pii-detection", label: "PII Detection", icon: Eraser },
+  { to: "/impact-mapping", label: "Impact Mapping", icon: Network },
+  { to: "/event-timeline", label: "Event Timeline", icon: Clock },
+  { to: "/predictive-analytics", label: "Predictive Analytics", icon: TrendingUp },
 ];
 
 const OBS_NATIVE = [
@@ -80,6 +93,12 @@ export function Sidebar() {
           <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-[0.15em] px-3 mb-2">Registry</p>
           <div className="space-y-0.5">
             {REGISTRY_NAV.map((n) => <NavItem key={n.to} {...n} />)}
+          </div>
+        </div>
+        <div>
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-[0.15em] px-3 mb-2">Governance &amp; Analytics</p>
+          <div className="space-y-0.5">
+            {ANALYTICS_NAV.map((n) => <NavItem key={n.to} {...n} />)}
           </div>
         </div>
         <div>

@@ -71,6 +71,16 @@ export const api = {
     delete: (id: string) => del(`/api/agents/${id}`),
     restore: (agentId: string, snapshotId: string) =>
       post<any>(`/api/agents/${agentId}/restore/${snapshotId}`),
+    discover: (params?: { q?: string; team?: string; lifecycle?: string; risk_tier?: string }) => {
+      const qs = new URLSearchParams();
+      Object.entries(params ?? {}).forEach(([k, v]) => { if (v) qs.set(k, String(v)); });
+      const q = qs.toString();
+      return get<any[]>(`/api/agents/discover${q ? `?${q}` : ""}`);
+    },
+    duplicates: () => get<any[]>("/api/agents/duplicates"),
+    merge: (keepId: string, mergeIds: string[]) => post<any>("/api/agents/merge", { keepId, mergeIds }),
+    dedupe: (opts?: { removeTraceJunk?: boolean; dryRun?: boolean }) =>
+      post<any>("/api/agents/dedupe", { removeTraceJunk: opts?.removeTraceJunk ?? true, dryRun: opts?.dryRun ?? false }),
   },
 
   connectors: {
@@ -113,9 +123,30 @@ export const api = {
       const q = qs.toString();
       return get<any[]>(`/api/threats/${q ? `?${q}` : ""}`);
     },
-    scan: () => post<any[]>("/api/threats/scan"),
+    // Returns { findings, content, llm }
+    scan: (content = true) => post<any>(`/api/threats/scan?content=${content}`),
+    analyze: (data: { prompt: string; response?: string; agentId?: string; store?: boolean; principal?: string }) =>
+      post<any>("/api/threats/analyze", data),
+    llmStatus: () => get<any>("/api/threats/llm-status"),
     create: (data: any) => post<any>("/api/threats/", data),
     delete: (id: string) => del(`/api/threats/${id}`),
+  },
+
+  capture: {
+    gatewayStatus: () => get<any>("/api/capture/gateway/status"),
+    testCall: (data: { agentId?: string; agentSlug?: string; prompt?: string; provider?: string }) =>
+      post<any>("/api/capture/test-call", data),
+    instrument: (data: { agentId?: string; agentSlug?: string; captureStyle?: string }) =>
+      post<any>("/api/capture/instrument", data),
+  },
+
+  analytics: {
+    overview: () => get<any>("/api/analytics/overview"),
+    repeatOffenders: () => get<any>("/api/analytics/repeat-offenders"),
+    jailbreakSignatures: () => get<any>("/api/analytics/jailbreak-signatures"),
+    modelTheft: () => get<any>("/api/analytics/model-theft"),
+    piiTrend: () => get<any>("/api/analytics/pii-trend"),
+    coherencyPull: () => post<any>("/api/analytics/coherency/pull"),
   },
 
   graph: {

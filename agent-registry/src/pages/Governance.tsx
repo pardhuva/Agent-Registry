@@ -1,10 +1,10 @@
-import { useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ShieldAlert, Copy, ShieldCheck, FileWarning, ScanSearch } from "lucide-react";
+import { ShieldAlert, Copy, ShieldCheck, FileWarning, ScanSearch, Wand2, Loader2, Trash2 } from "lucide-react";
 import { useData } from "../context/DataContext";
+import { api } from "../lib/api";
 import type { Agent } from "../types";
 import { stageOf, LIFECYCLE_LABEL, LIFECYCLE_STYLE } from "../lib/lifecycle";
-import { duplicateGroups } from "../lib/duplicates";
 
 // Heuristic: an agent is "over-privileged" if its access scope count is greater than
 // what its declared dependencies plausibly justify.
@@ -25,9 +25,46 @@ function overPrivilegeScore(a: Agent): { flagged: boolean; reason: string } {
 }
 
 
+interface DupAgent { id: string; name: string; slug: string; lifecycle?: string; protectionStatus?: string; isJunk?: boolean; recommendedKeep?: boolean; }
+interface DupGroup { key: string; reason: string; agents: DupAgent[]; }
+
 export function Governance() {
-  const { agents } = useData();
+  const { agents, refreshAgents } = useData();
   const navigate = useNavigate();
+
+  const [dupGroups, setDupGroups] = useState<DupGroup[]>([]);
+  const [deduping, setDeduping] = useState(false);
+  const [dedupeMsg, setDedupeMsg] = useState<string | null>(null);
+
+  const loadDuplicates = useCallback(async () => {
+    try {
+      setDupGroups(await api.agents.duplicates());
+    } catch {
+      setDupGroups([]);
+    }
+  }, []);
+
+  useEffect(() => { loadDuplicates(); }, [loadDuplicates, agents.length]);
+
+  const totalDupes = useMemo(
+    () => dupGroups.reduce((n, g) => n + (g.reason === "slug" ? g.agents.length - 1 : g.agents.length), 0),
+    [dupGroups]
+  );
+
+  async function runDedupe() {
+    setDeduping(true);
+    setDedupeMsg(null);
+    try {
+      const res = await api.agents.dedupe({ removeTraceJunk: true });
+      await refreshAgents();
+      await loadDuplicates();
+      setDedupeMsg(`Removed ${res.duplicatesRemoved} duplicate record(s) and ${res.traceJunkCount} trace-artifact(s).`);
+    } catch (e) {
+      setDedupeMsg(e instanceof Error ? e.message : "Dedupe failed");
+    } finally {
+      setDeduping(false);
+    }
+  }
 
   const stats = useMemo(() => {
     const totals = { all: agents.length, prod: 0, unowned: 0, unscoped: 0, soc2: 0, highRisk: 0 };
@@ -45,7 +82,6 @@ export function Governance() {
     () => agents.map((a) => ({ a, flag: overPrivilegeScore(a) })).filter((x) => x.flag.flagged),
     [agents]
   );
-  const duplicates = useMemo(() => duplicateGroups(agents), [agents]);
   const unowned = useMemo(() => agents.filter((a) => !a.owner || !a.team), [agents]);
 
   return (
@@ -105,25 +141,49 @@ export function Governance() {
 
         {/* Duplicates */}
         <section className="bg-white border border-gray-200/80 rounded-2xl p-5 shadow-card">
-          <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2 mb-3">
-            <Copy size={15} className="text-amber-600" />
-            Duplicate detection
-          </h2>
-          {duplicates.length === 0 ? (
-            <p className="text-sm text-gray-500">No likely duplicates. Capability statements are unique across the registry.</p>
+          <div className="flex items-start justify-between gap-2 mb-3">
+            <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+              <Copy size={15} className="text-amber-600" />
+              Duplicate detection &amp; cleanup
+            </h2>
+            {(totalDupes > 0) && (
+              <button
+                onClick={runDedupe}
+                disabled={deduping}
+                className="text-xs flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-50"
+              >
+                {deduping ? <><Loader2 size={12} className="animate-spin" /> Cleaning…</> : <><Wand2 size={12} /> Merge &amp; clean ({totalDupes})</>}
+              </button>
+            )}
+          </div>
+          {dedupeMsg && <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-2 py-1 mb-2">{dedupeMsg}</p>}
+          {dupGroups.length === 0 ? (
+            <p className="text-sm text-gray-500">No duplicates. Every slug is unique and there are no trace artifacts.</p>
           ) : (
             <ul className="space-y-2">
-              {duplicates.map((g) => (
-                <li key={g.key} className="border border-amber-200 bg-amber-50 rounded-lg p-3">
-                  <p className="text-xs text-amber-800 mb-1.5">Same capability: <em>“{g.key}…”</em></p>
+              {dupGroups.map((g) => (
+                <li key={g.key} className={`border rounded-lg p-3 ${g.reason === "trace-junk" ? "border-rose-200 bg-rose-50" : "border-amber-200 bg-amber-50"}`}>
+                  <p className={`text-xs mb-1.5 flex items-center gap-1.5 ${g.reason === "trace-junk" ? "text-rose-800" : "text-amber-800"}`}>
+                    {g.reason === "trace-junk"
+                      ? <><Trash2 size={12} /> Hash-named trace artifacts (not real agents)</>
+                      : <>Same slug: <em className="font-mono">{g.key}</em> — {g.agents.length} records</>}
+                  </p>
                   <div className="flex flex-wrap gap-1.5">
                     {g.agents.map((a) => (
                       <button
                         key={a.id}
                         onClick={() => navigate(`/agents/${a.id}`)}
-                        className="text-xs font-mono bg-white border border-amber-300 text-amber-800 px-2 py-0.5 rounded hover:bg-amber-100"
+                        title={a.recommendedKeep ? "Recommended keeper" : a.isJunk ? "Will be removed" : "Duplicate"}
+                        className={`text-xs font-mono px-2 py-0.5 rounded border hover:opacity-80 ${
+                          a.recommendedKeep
+                            ? "bg-emerald-100 border-emerald-300 text-emerald-800"
+                            : g.reason === "trace-junk"
+                            ? "bg-white border-rose-300 text-rose-700"
+                            : "bg-white border-amber-300 text-amber-800"
+                        }`}
                       >
-                        {a.slug} <span className="opacity-60">· {a.team || "no team"}</span>
+                        {a.recommendedKeep && "★ "}{a.name.length > 24 ? a.name.slice(0, 24) + "…" : a.name}
+                        <span className="opacity-60"> · {a.lifecycle}</span>
                       </button>
                     ))}
                   </div>

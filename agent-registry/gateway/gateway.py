@@ -22,8 +22,10 @@ import json
 import logging
 import os
 import re
+import sys
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 
 import httpx
 from fastapi import FastAPI, Request, Response, HTTPException
@@ -31,6 +33,15 @@ from fastapi.middleware.cors import CORSMiddleware
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("ibaseit-gateway")
+
+# Reuse the backend's LLM content classifier so the gateway enforces with the
+# *same* brain the registry scans with (the "one core, many adapters" principle).
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "backend"))
+try:
+    import llm_detect  # noqa: E402
+except Exception as _e:  # pragma: no cover
+    llm_detect = None
+    logger.warning(f"[gateway] llm_detect unavailable, falling back to regex only: {_e}")
 
 # ── Configuration ─────────────────────────────────────────────────────────
 
@@ -78,9 +89,12 @@ def _fetch_agent_policy(agent_id: str, auth_token: str) -> dict:
         return _policy_cache[agent_id]
 
     try:
+        # agent_id is the agent *slug* (from the X-Agent-Id header), so resolve
+        # via the capture lookup endpoint which keys on slug.
         resp = httpx.get(
-            f"{REGISTRY_URL}/api/agents/{agent_id}",
+            f"{REGISTRY_URL}/api/capture/lookup",
             headers={"Authorization": f"Bearer {auth_token}"},
+            params={"slug": agent_id},
             timeout=5,
         )
         if resp.status_code == 200:
@@ -128,13 +142,56 @@ def _redact_pii(text: str, classes: list[str]) -> str:
 
 
 def _report_threat(auth_token: str, agent_id: str, control: str, severity: str, summary: str, detail: str | None = None):
-    """Report a threat finding to the registry."""
+    """Report a threat finding to the registry.
+
+    agent_id is the agent *slug*, so we use the capture endpoint which resolves
+    by slug (the plain /api/threats/ endpoint keys on the registry UUID).
+    """
     try:
         httpx.post(
-            f"{REGISTRY_URL}/api/threats/",
+            f"{REGISTRY_URL}/api/capture/threat",
             headers={"Authorization": f"Bearer {auth_token}", "Content-Type": "application/json"},
-            json={"control": control, "agentId": agent_id, "severity": severity, "summary": summary, "detail": detail},
+            json={"agentSlug": agent_id, "control": control, "severity": severity,
+                  "summary": summary, "detail": detail, "source": "gateway"},
             timeout=5,
+        )
+    except Exception:
+        pass
+
+
+def _llm_inspect(full_text: str, policy: dict, agent_id: str) -> list[dict]:
+    """Run the shared LLM classifier when firewall/jailbreak detection is on.
+
+    Returns the list of findings (possibly empty). Regex above is the fast
+    pre-filter; this catches the paraphrased / novel attacks regex misses.
+    """
+    if llm_detect is None or not full_text.strip():
+        return []
+    want = policy.get("firewall", {}).get("enabled") or policy.get("jailbreak", {}).get("detect", True)
+    if not want or not llm_detect.llm_available():
+        return []
+    try:
+        det = llm_detect.analyze_content(full_text, None, {"agent": agent_id})
+        return det.get("findings", [])
+    except Exception as e:
+        logger.warning(f"[gateway] LLM inspection error: {e}")
+        return []
+
+
+_instrumented: set[str] = set()
+
+
+def _confirm_instrument(agent_id: str, auth_token: str):
+    """Tell the registry this agent has a live gateway adapter (once per agent)."""
+    if not (agent_id and auth_token) or agent_id in _instrumented:
+        return
+    _instrumented.add(agent_id)
+    try:
+        httpx.post(
+            f"{REGISTRY_URL}/api/capture/instrument",
+            headers={"Authorization": f"Bearer {auth_token}", "Content-Type": "application/json"},
+            json={"agentSlug": agent_id, "captureStyle": "gateway"},
+            timeout=3,
         )
     except Exception:
         pass
@@ -156,46 +213,61 @@ def _enforce_request(body: dict, policy: dict, agent_id: str, auth_token: str) -
 
     full_text = " ".join(user_texts)
 
-    # S3 — Jailbreak detection
+    # Single shared LLM pass — its findings feed every control below.
+    llm_findings = _llm_inspect(full_text, policy, agent_id)
+    llm_by_control: dict[str, dict] = {}
+    for f in llm_findings:
+        llm_by_control.setdefault(f["control"], f)
+
+    # S3 — Jailbreak detection (regex pre-filter OR LLM verdict)
     jb_policy = policy.get("jailbreak", {})
     if jb_policy.get("detect", True):
         match = _check_jailbreak(full_text)
-        if match:
+        llm_jb = llm_by_control.get("jailbreak")
+        if match or llm_jb:
             action = jb_policy.get("action", "log")
+            reason = match or (llm_jb.get("matched") or llm_jb.get("summary"))
+            method = "regex" if match else "LLM"
             _report_threat(auth_token, agent_id, "jailbreak", "critical",
-                          f"Jailbreak attempt blocked: '{match}'")
-            logger.warning(f"[gateway] Jailbreak detected for {agent_id}: {match}")
+                          f"Jailbreak attempt detected ({method}): '{reason}'",
+                          (llm_jb or {}).get("detail"))
+            logger.warning(f"[gateway] Jailbreak detected for {agent_id} via {method}: {reason}")
             if action in ("block", "quarantine"):
                 raise HTTPException(
                     status_code=403,
-                    detail=f"Request blocked: jailbreak attempt detected"
+                    detail=f"Request blocked: jailbreak attempt detected ({method})"
                 )
 
-    # S1 — Firewall
+    # S1 — Firewall (regex pre-filter OR LLM verdict)
     fw_policy = policy.get("firewall", {})
     if fw_policy.get("enabled"):
         dangerous = [
             re.compile(r"(?:exec|eval|system|subprocess)\s*\(", re.I),
             re.compile(r"<script[^>]*>", re.I),
         ]
-        for p in dangerous:
-            if p.search(full_text):
-                action = fw_policy.get("onViolation", "log")
-                _report_threat(auth_token, agent_id, "firewall", "high",
-                              "Firewall: dangerous content in request")
-                if action in ("block", "quarantine"):
-                    raise HTTPException(status_code=403, detail="Request blocked by firewall policy")
+        regex_hit = any(p.search(full_text) for p in dangerous)
+        llm_fw = llm_by_control.get("firewall")
+        if regex_hit or llm_fw:
+            action = fw_policy.get("onViolation", "log")
+            method = "regex" if regex_hit else "LLM"
+            _report_threat(auth_token, agent_id, "firewall", "high",
+                          f"Firewall: dangerous content in request ({method})",
+                          (llm_fw or {}).get("detail"))
+            if action in ("block", "quarantine"):
+                raise HTTPException(status_code=403, detail=f"Request blocked by firewall policy ({method})")
 
-    # S4 — PII detection & redaction
+    # S4/S6 — PII detection & redaction (regex + LLM)
     pii_policy = policy.get("pii", {})
     pii_classes = pii_policy.get("classes", [])
     if pii_classes:
         findings = _check_pii(full_text, pii_classes)
-        if findings:
+        llm_pii = llm_by_control.get("pii")
+        if findings or llm_pii:
             action = pii_policy.get("action", "log")
+            method = "regex" if findings else "LLM"
             _report_threat(auth_token, agent_id, "pii", "high",
-                          f"PII detected in request: {findings}",
-                          json.dumps(findings))
+                          f"PII detected in request ({method}): {findings or (llm_pii or {}).get('matched','')}",
+                          json.dumps(findings) if findings else (llm_pii or {}).get("detail"))
             if action == "redact":
                 for msg in messages:
                     if msg.get("role") == "user" and isinstance(msg.get("content"), str):
@@ -285,22 +357,27 @@ async def proxy(path: str, request: Request):
         except json.JSONDecodeError:
             pass
 
-    # Always run baseline jailbreak + firewall checks (even without a registered agent)
+    # Apply per-agent policy enforcement if agent is registered. The policy path
+    # (_enforce_request) does LLM + regex inspection AND reports threats to the
+    # registry, respecting each agent's configured action.
     messages = body.get("messages", [])
     user_texts = [m.get("content", "") for m in messages if m.get("role") == "user" and isinstance(m.get("content"), str)]
     full_text = " ".join(user_texts)
-    if full_text:
+
+    policy = {}
+    if agent_id and auth_token:
+        policy = _fetch_agent_policy(agent_id, auth_token)
+        # Confirm the adapter is live BEFORE enforcement, so a blocked threat
+        # still flips the badge to Protected (the gateway demonstrably saw it).
+        _confirm_instrument(agent_id, auth_token)
+        if policy:
+            body = _enforce_request(body, policy, agent_id, auth_token)
+    elif full_text:
+        # Unregistered caller: still apply a baseline jailbreak block as defence.
         jb_match = _check_jailbreak(full_text)
         if jb_match:
             logger.warning(f"[gateway] Jailbreak blocked (baseline): {jb_match}")
             raise HTTPException(status_code=403, detail=f"Request blocked: jailbreak attempt detected — '{jb_match}'")
-
-    # Apply per-agent policy enforcement if agent is registered
-    policy = {}
-    if agent_id and auth_token:
-        policy = _fetch_agent_policy(agent_id, auth_token)
-        if policy:
-            body = _enforce_request(body, policy, agent_id, auth_token)
 
     # Build upstream headers (forward auth, strip our custom headers)
     forward_headers = {}
@@ -309,18 +386,6 @@ async def proxy(path: str, request: Request):
         if lower in ("host", "x-agent-id", "x-provider", "x-registry-token", "content-length"):
             continue
         forward_headers[key] = value
-
-    # Auto-confirm first instrumented call for this agent
-    if agent_id and auth_token:
-        try:
-            httpx.post(
-                f"{REGISTRY_URL}/api/capture/instrument",
-                headers={"Authorization": f"Bearer {auth_token}", "Content-Type": "application/json"},
-                json={"agentSlug": agent_id, "captureStyle": "gateway"},
-                timeout=3,
-            )
-        except Exception:
-            pass
 
     # Forward to upstream provider
     async with httpx.AsyncClient(timeout=120) as client:

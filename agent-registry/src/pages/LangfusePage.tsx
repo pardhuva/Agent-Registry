@@ -51,7 +51,7 @@ export function LangfusePage() {
     setTestResult(null);
     try {
       await testLangfuse({ name, hostUrl, publicKey, secretKey });
-      addLangfuse({ name: name || "Langfuse Cloud", hostUrl, publicKey, secretKey });
+      await addLangfuse({ name: name || "Langfuse Cloud", hostUrl, publicKey, secretKey });
       reset();
     } catch (e) {
       setTestResult({ ok: false, msg: e instanceof Error ? e.message : "Connection failed" });
@@ -70,7 +70,7 @@ export function LangfusePage() {
 
       <div className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
         <h2 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-1.5">
-          <span className="text-base">âš¡</span> Add instance
+          <span className="text-base">⚡</span> Add instance
         </h2>
         <form onSubmit={handleAdd} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
@@ -100,7 +100,7 @@ export function LangfusePage() {
               <input
                 value={publicKey}
                 onChange={(e) => setPublicKey(e.target.value)}
-                placeholder="pk-lf-â€¦"
+                placeholder="pk-lf-…"
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
                 required
               />
@@ -111,7 +111,7 @@ export function LangfusePage() {
                 type="password"
                 value={secretKey}
                 onChange={(e) => setSecretKey(e.target.value)}
-                placeholder="sk-lf-â€¦"
+                placeholder="sk-lf-…"
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
                 required
               />

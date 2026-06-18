@@ -40,13 +40,35 @@ class AgentGuard:
         self.enforcer: PolicyEnforcer | None = None
         self._session_tokens = 0
         self._call_count = 0
+        self._instrument_confirmed = False
+
+    def confirm_instrumentation(self):
+        """Tell the registry this agent has a live SDK adapter attached, so the
+        dashboard flips its badge to 'Protected'. Fired once, on the first call."""
+        if self._instrument_confirmed:
+            return
+        self._instrument_confirmed = True
+        try:
+            httpx.post(
+                f"{self.registry_url}/api/capture/instrument",
+                headers={"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"},
+                json={"agentSlug": self.agent_id, "captureStyle": "sdk"},
+                timeout=5,
+            )
+            logger.info(f"[ibaseit] Instrumentation confirmed for {self.agent_id} (SDK)")
+        except Exception as e:
+            logger.warning(f"[ibaseit] Could not confirm instrumentation: {e}")
 
     def fetch_policy(self) -> dict:
-        """Pull the agent's policy from the registry."""
+        """Pull the agent's policy from the registry.
+
+        agent_id here is the agent *slug*, so we resolve via the capture
+        lookup endpoint (which keys on slug) rather than /api/agents/{uuid}.
+        """
         headers = {"Authorization": f"Bearer {self.api_key}"}
-        url = f"{self.registry_url}/api/agents/{self.agent_id}"
+        url = f"{self.registry_url}/api/capture/lookup"
         try:
-            resp = httpx.get(url, headers=headers, timeout=10)
+            resp = httpx.get(url, headers=headers, params={"slug": self.agent_id}, timeout=10)
             if resp.status_code == 200:
                 agent_data = resp.json()
                 self.policy = agent_data.get("policy") or {}
@@ -68,16 +90,19 @@ class AgentGuard:
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
         }
+        # Report via the capture endpoint, which resolves the agent by slug
+        # (agent_id here is the slug, not the registry UUID).
         body = {
+            "agentSlug": self.agent_id,
             "control": violation.control,
-            "agentId": self.agent_id,
             "severity": violation.severity,
             "summary": violation.message,
             "detail": json.dumps(violation.details) if violation.details else None,
+            "source": "sdk",
         }
         try:
             httpx.post(
-                f"{self.registry_url}/api/threats/",
+                f"{self.registry_url}/api/capture/threat",
                 headers=headers,
                 json=body,
                 timeout=5,
@@ -87,6 +112,9 @@ class AgentGuard:
 
     def enforce_request(self, prompt: str, model: str | None = None) -> str:
         """Check prompt against policy. Raises PolicyBlockedError if blocked."""
+        # First real call → confirm the SDK adapter is live to the registry.
+        self.confirm_instrumentation()
+
         if not self.enforcer:
             return prompt
 

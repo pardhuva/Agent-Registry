@@ -17,6 +17,13 @@ import { Governance } from "./pages/Governance";
 import { Discover } from "./pages/Discover";
 import { Threats } from "./pages/Threats";
 import { CaptureAdapters } from "./pages/CaptureAdapters";
+import { Observability } from "./pages/Observability";
+import { UserAnalytics } from "./pages/UserAnalytics";
+import { SecurityCenter } from "./pages/SecurityCenter";
+import { PiiDetection } from "./pages/PiiDetection";
+import { ImpactMapping } from "./pages/ImpactMapping";
+import { EventTimeline } from "./pages/EventTimeline";
+import { PredictiveAnalytics } from "./pages/PredictiveAnalytics";
 import { ConnectorPage } from "./pages/ConnectorPage";
 import { CONNECTOR_ORDER } from "./lib/connectors";
 
@@ -50,8 +57,15 @@ function AppRoutes() {
         <Route path="/discover" element={<Discover />} />
         <Route path="/threats" element={<Threats />} />
         <Route path="/capture" element={<CaptureAdapters />} />
+        <Route path="/observability" element={<Observability />} />
+        <Route path="/user-analytics" element={<UserAnalytics />} />
+        <Route path="/security-center" element={<SecurityCenter />} />
+        <Route path="/pii-detection" element={<PiiDetection />} />
+        <Route path="/impact-mapping" element={<ImpactMapping />} />
+        <Route path="/event-timeline" element={<EventTimeline />} />
+        <Route path="/predictive-analytics" element={<PredictiveAnalytics />} />
         {CONNECTOR_ORDER.map((p) => (
-          <Route key={p} path={`/connectors/${p}`} element={<ConnectorPage platform={p} />} />
+          <Route key={p} path={`/connectors/${p}`} element={<ConnectorPage key={p} platform={p} />} />
         ))}
         <Route path="/langfuse" element={<LangfusePage />} />
         <Route path="/langsmith" element={<LangSmithPage />} />

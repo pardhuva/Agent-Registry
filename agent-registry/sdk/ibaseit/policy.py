@@ -6,11 +6,33 @@ fetched from the Agent Registry backend.
 """
 from __future__ import annotations
 
+import os
 import re
+import sys
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Literal
 
 Action = Literal["log", "flag", "redact", "block", "quarantine", "alert", "throttle", "cutoff"]
+
+# Use the shared LLM content classifier when it's importable (in-repo). When the
+# SDK is installed standalone without it, we degrade gracefully to regex only.
+try:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "backend"))
+    import llm_detect as _llm  # type: ignore
+except Exception:
+    _llm = None
+
+
+def _llm_findings(text: str) -> list[dict]:
+    if _llm is None or not text or not text.strip():
+        return []
+    try:
+        if not _llm.llm_available():
+            return []
+        return _llm.analyze_content(text).get("findings", [])
+    except Exception:
+        return []
 
 
 @dataclass
@@ -58,24 +80,43 @@ class PolicyEnforcer:
         """Check an outgoing prompt against all enabled policies."""
         violations = []
 
-        # S1 — Firewall (basic content check)
         fw = self.policy.get("firewall", {})
+        jb = self.policy.get("jailbreak", {})
+        pii = self.policy.get("pii", {})
+
+        # Single shared LLM pass (catches paraphrased attacks regex misses).
+        llm_hits: dict[str, dict] = {}
+        if fw.get("enabled") or jb.get("detect", True) or pii.get("classes"):
+            for f in _llm_findings(prompt):
+                llm_hits.setdefault(f["control"], f)
+
+        # S1 — Firewall (regex + LLM)
         if fw.get("enabled"):
             v = self._check_firewall(prompt, "request")
+            if not v and llm_hits.get("firewall"):
+                h = llm_hits["firewall"]
+                v = PolicyViolation("firewall", "high", f"Firewall (LLM): {h.get('summary')}",
+                                    fw.get("onViolation", "log"), {"matched": h.get("matched"), "source": "llm"})
             if v:
                 violations.append(v)
 
-        # S3 — Jailbreak detection
-        jb = self.policy.get("jailbreak", {})
+        # S3 — Jailbreak detection (regex + LLM)
         if jb.get("detect", True):
             v = self._check_jailbreak(prompt)
+            if not v and llm_hits.get("jailbreak"):
+                h = llm_hits["jailbreak"]
+                v = PolicyViolation("jailbreak", "critical", f"Jailbreak (LLM): {h.get('summary')}",
+                                    jb.get("action", "log"), {"matched": h.get("matched"), "source": "llm"})
             if v:
                 violations.append(v)
 
-        # S4 — PII in outgoing prompt
-        pii = self.policy.get("pii", {})
+        # S4/S6 — PII in outgoing prompt (regex + LLM)
         if pii.get("classes"):
             vs = self._check_pii(prompt, pii)
+            if not vs and llm_hits.get("pii"):
+                h = llm_hits["pii"]
+                vs = [PolicyViolation("pii", "high", f"PII (LLM): {h.get('summary')}",
+                                      pii.get("action", "log"), {"matched": h.get("matched"), "source": "llm"})]
             violations.extend(vs)
 
         return violations
