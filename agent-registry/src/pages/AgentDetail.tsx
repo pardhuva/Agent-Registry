@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Tag, Trash2, RefreshCw, Layers, Zap, Activity, Radio,
   Users, Shield, Database, Cpu, Wrench, Bot, FileCheck2, CheckCircle2, AlertTriangle, ArrowRight, Pencil,
-  History, Undo2, ArrowUpCircle, ArrowDownCircle, Plus,
+  History, Undo2, ArrowUpCircle, ArrowDownCircle, Plus, GitBranch, ArrowUpRight, ArrowDownRight, Repeat, Clock,
 } from "lucide-react";
 import { useData } from "../context/DataContext";
 import { TraceList } from "../components/TraceList";
@@ -13,7 +13,7 @@ import {
   fetchHeliconeTraces,
   fetchOtelTraces,
 } from "../lib/tracing";
-import type { Trace, Platform, ConnectorPlatform } from "../types";
+import type { Trace, Platform, ConnectorPlatform, Agent as AgentType } from "../types";
 import { LIFECYCLE_STYLE, LIFECYCLE_LABEL, stageOf, nextStage, checkPromotion } from "../lib/lifecycle";
 import { CONNECTORS } from "../lib/connectors";
 import { SecurityPanel } from "../components/SecurityPanel";
@@ -66,6 +66,330 @@ function isConnectorPlatform(p: Platform): p is ConnectorPlatform {
   return !NATIVE_IDS.includes(p);
 }
 
+// ─── Mini per-agent dependency canvas ────────────────────────────────────────
+type MGNode = {
+  id: string; label: string;
+  kind: "self" | "caller" | "callee" | "model" | "tool" | "data";
+  agentId?: string; x: number; y: number;
+};
+const MG_COLOR: Record<MGNode["kind"], { fill: string; stroke: string }> = {
+  self:   { fill: "#1f2937", stroke: "#111827" },
+  caller: { fill: "#059669", stroke: "#047857" },
+  callee: { fill: "#3b5bdb", stroke: "#2b4bc8" },
+  model:  { fill: "#7048e8", stroke: "#5f3dc4" },
+  tool:   { fill: "#6b7280", stroke: "#4b5563" },
+  data:   { fill: "#c27830", stroke: "#a36525" },
+};
+
+function MiniAgentGraph({ agent, allAgents, onNavigate }: {
+  agent: AgentType; allAgents: AgentType[]; onNavigate: (id: string) => void;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const nodesRef  = useRef<MGNode[]>([]);
+  const [hovered, setHovered] = useState<string | null>(null);
+
+  const callers = allAgents.filter(a =>
+    a.id !== agent.id && (a.dependencies?.agents ?? []).includes(agent.slug)
+  );
+  const callees = (agent.dependencies?.agents ?? [])
+    .map(s => allAgents.find(a => a.slug === s))
+    .filter((a): a is AgentType => !!a && a.id !== agent.id);
+  const models   = agent.dependencies?.models    ?? [];
+  const tools    = agent.dependencies?.tools     ?? [];
+  const dataSrcs = agent.dependencies?.dataSources ?? [];
+
+  const buildNodes = useCallback((w: number, h: number): MGNode[] => {
+    const cx = w / 2, cy = h / 2;
+    const R  = Math.min(w, h) * 0.33;
+    const nodes: MGNode[] = [
+      { id: "self", label: agent.name, kind: "self", agentId: agent.id, x: cx, y: cy },
+    ];
+    const sats: Omit<MGNode, "x" | "y" | "id">[] = [
+      ...callers.map(a  => ({ label: a.name, kind: "caller" as const, agentId: a.id })),
+      ...callees.map(a  => ({ label: a.name, kind: "callee" as const, agentId: a.id })),
+      ...models.map(m   => ({ label: m,      kind: "model"  as const })),
+      ...tools.map(t    => ({ label: t,      kind: "tool"   as const })),
+      ...dataSrcs.map(d => ({ label: d,      kind: "data"   as const })),
+    ];
+    const n = sats.length || 1;
+    sats.forEach((s, i) => {
+      const angle = (2 * Math.PI * i) / n - Math.PI / 2;
+      nodes.push({ ...s, id: `${s.kind}-${i}`, x: cx + R * Math.cos(angle), y: cy + R * Math.sin(angle) });
+    });
+    return nodes;
+  }, [agent, callers, callees, models, tools, dataSrcs]);
+
+  const draw = useCallback((nodes: MGNode[], hov: string | null) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const self = nodes.find(n => n.kind === "self")!;
+    nodes.filter(n => n.kind !== "self").forEach(n => {
+      const active = hov === n.id || hov === "self";
+      ctx.beginPath(); ctx.moveTo(self.x, self.y); ctx.lineTo(n.x, n.y);
+      ctx.strokeStyle = active ? "#f97316" : "#e5e7eb";
+      ctx.lineWidth   = active ? 2 : 1;
+      ctx.stroke();
+    });
+    nodes.forEach(n => {
+      const c = MG_COLOR[n.kind];
+      const r = n.kind === "self" ? 22 : 14;
+      if (hov === n.id) {
+        ctx.beginPath(); ctx.arc(n.x, n.y, r + 5, 0, 2 * Math.PI);
+        ctx.fillStyle = c.fill + "30"; ctx.fill();
+      }
+      ctx.beginPath(); ctx.arc(n.x, n.y, r, 0, 2 * Math.PI);
+      ctx.fillStyle = c.fill; ctx.strokeStyle = c.stroke; ctx.lineWidth = 2;
+      ctx.fill(); ctx.stroke();
+      const lbl = n.label.length > 15 ? n.label.slice(0, 14) + "…" : n.label;
+      ctx.fillStyle = "#374151";
+      ctx.font = n.kind === "self" ? "bold 9px sans-serif" : "9px sans-serif";
+      ctx.textAlign = "center"; ctx.textBaseline = "top";
+      ctx.fillText(lbl, n.x, n.y + r + 4);
+    });
+  }, []);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const raf = requestAnimationFrame(() => {
+      const w = canvas.offsetWidth || 500;
+      canvas.width = w; canvas.height = 260;
+      const nodes = buildNodes(w, 260);
+      nodesRef.current = nodes; draw(nodes, null);
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [buildNodes, draw]);
+
+  const hitNode = (ex: number, ey: number) => {
+    const rect = canvasRef.current!.getBoundingClientRect();
+    const x = ex - rect.left, y = ey - rect.top;
+    return nodesRef.current.find(n => Math.hypot(x - n.x, y - n.y) <= (n.kind === "self" ? 22 : 14));
+  };
+  const onMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const n = hitNode(e.clientX, e.clientY);
+    const id = n?.id ?? null;
+    if (id !== hovered) {
+      setHovered(id); draw(nodesRef.current, id);
+      canvasRef.current!.style.cursor = n?.agentId && n.kind !== "self" ? "pointer" : "default";
+    }
+  };
+  const onClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const n = hitNode(e.clientX, e.clientY);
+    if (n?.agentId && n.kind !== "self") onNavigate(n.agentId);
+  };
+
+  if (!callers.length && !callees.length && !models.length && !tools.length && !dataSrcs.length) return null;
+
+  return (
+    <div className="bg-white border border-gray-200/80 rounded-2xl p-5 mb-6 shadow-card">
+      <div className="flex items-center justify-between mb-1">
+        <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+          <GitBranch size={14} /> Dependency map
+        </h2>
+        <div className="flex items-center gap-3 text-[10px] text-gray-500">
+          {callers.length  > 0 && <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-600 inline-block"/>callers</span>}
+          {callees.length  > 0 && <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-600 inline-block"/>callees</span>}
+          {models.length   > 0 && <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-violet-600 inline-block"/>models</span>}
+          {tools.length    > 0 && <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-gray-500 inline-block"/>tools</span>}
+          {dataSrcs.length > 0 && <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-600 inline-block"/>data</span>}
+        </div>
+      </div>
+      <p className="text-xs text-gray-400 mb-2">Click an agent node to open its detail page</p>
+      <canvas
+        ref={canvasRef}
+        className="w-full rounded-xl bg-gray-50 border border-gray-100"
+        style={{ height: 260, display: "block" }}
+        onMouseMove={onMove}
+        onMouseLeave={() => { setHovered(null); draw(nodesRef.current, null); }}
+        onClick={onClick}
+      />
+    </div>
+  );
+}
+
+// ─── Invocation history panel ─────────────────────────────────────────────────
+function buildChain(agent: AgentType, allAgents: AgentType[]): AgentType[] {
+  const callers = allAgents.filter(a =>
+    a.id !== agent.id && (a.dependencies?.agents ?? []).includes(agent.slug)
+  );
+  const callees = (agent.dependencies?.agents ?? [])
+    .map(s => allAgents.find(a => a.slug === s))
+    .filter((a): a is AgentType => !!a && a.id !== agent.id);
+  if (!callers.length && !callees.length) return [];
+  return [...callers, agent, ...callees];
+}
+
+function AgentInvocationPanel({ agent, allAgents, traces, loading, onNavigate }: {
+  agent: AgentType; allAgents: AgentType[]; traces: Trace[];
+  loading: boolean; onNavigate: (id: string) => void;
+}) {
+  const callers = allAgents.filter(a =>
+    a.id !== agent.id && (a.dependencies?.agents ?? []).includes(agent.slug)
+  );
+  const callees = (agent.dependencies?.agents ?? [])
+    .map(s => allAgents.find(a => a.slug === s))
+    .filter((a): a is AgentType => !!a && a.id !== agent.id);
+  const chain = buildChain(agent, allAgents);
+
+  const recentTraces = traces.slice(0, 12);
+  const totalCalls   = traces.length;
+  const successCount = traces.filter(t => t.status === "success").length;
+
+  // Count calls per hour over last 24h
+  const now = Date.now();
+  const last24h  = traces.filter(t => now - new Date(t.timestamp).getTime() < 86_400_000).length;
+  const last1h   = traces.filter(t => now - new Date(t.timestamp).getTime() <  3_600_000).length;
+
+  if (!callers.length && !callees.length && !loading && !traces.length) return null;
+
+  return (
+    <div className="bg-white border border-gray-200/80 rounded-2xl p-5 mb-6 shadow-card">
+      <div className="flex items-start justify-between mb-3">
+        <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+          <Repeat size={14} /> Invocation history
+        </h2>
+        {totalCalls > 0 && (
+          <div className="flex items-center gap-3 text-xs text-gray-500">
+            <span className="bg-gray-100 px-2 py-0.5 rounded font-mono">{totalCalls} total</span>
+            <span className="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded font-mono">{last24h} / 24 h</span>
+            <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-mono">{last1h} / 1 h</span>
+            <span className="text-gray-400">{successCount}/{totalCalls} ok</span>
+          </div>
+        )}
+      </div>
+
+      {/* Called-by / calls grid */}
+      {(callers.length > 0 || callees.length > 0) && (
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <div>
+            <div className="text-xs uppercase tracking-wider text-gray-500 mb-1.5">Called by (upstream)</div>
+            {callers.length === 0
+              ? <p className="text-xs text-gray-400 italic">No upstream callers</p>
+              : <div className="space-y-1.5">
+                  {callers.map(a => (
+                    <button key={a.id} onClick={() => onNavigate(a.id)}
+                      className="flex items-center gap-2 w-full text-left text-sm bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5 hover:bg-emerald-100 transition-colors">
+                      <ArrowUpRight size={12} className="text-emerald-700 shrink-0" />
+                      <div className="min-w-0">
+                        <div className="font-medium text-emerald-900 truncate">{a.name}</div>
+                        <div className="text-[10px] font-mono text-emerald-600 truncate">{a.slug}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+            }
+          </div>
+          <div>
+            <div className="text-xs uppercase tracking-wider text-gray-500 mb-1.5">Calls (downstream)</div>
+            {callees.length === 0
+              ? <p className="text-xs text-gray-400 italic">No downstream agents</p>
+              : <div className="space-y-1.5">
+                  {callees.map(a => (
+                    <button key={a.id} onClick={() => onNavigate(a.id)}
+                      className="flex items-center gap-2 w-full text-left text-sm bg-blue-50 border border-blue-200 rounded-lg px-3 py-1.5 hover:bg-blue-100 transition-colors">
+                      <ArrowDownRight size={12} className="text-blue-700 shrink-0" />
+                      <div className="min-w-0">
+                        <div className="font-medium text-blue-900 truncate">{a.name}</div>
+                        <div className="text-[10px] font-mono text-blue-600 truncate">{a.slug}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+            }
+          </div>
+        </div>
+      )}
+
+      {/* Execution sequence */}
+      {chain.length > 1 && (
+        <div className="mb-4">
+          <div className="text-xs uppercase tracking-wider text-gray-500 mb-1.5">Pipeline execution order</div>
+          <div className="flex items-center gap-1 flex-wrap">
+            {chain.map((a, i) => (
+              <span key={a.id} className="flex items-center gap-1">
+                <span
+                  onClick={() => a.id !== agent.id && onNavigate(a.id)}
+                  className={`text-xs px-2 py-0.5 rounded font-mono cursor-pointer transition-colors
+                    ${a.id === agent.id
+                      ? "bg-gray-800 text-white font-bold"
+                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    }`}
+                >
+                  {a.slug}
+                </span>
+                {i < chain.length - 1 && <ArrowRight size={11} className="text-gray-400 shrink-0" />}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Recent runs */}
+      <div>
+        <div className="text-xs uppercase tracking-wider text-gray-500 mb-1.5 flex items-center gap-1.5">
+          <Clock size={11} /> Recent runs (Langfuse)
+        </div>
+        {loading ? (
+          <p className="text-xs text-gray-400 animate-pulse">Loading traces…</p>
+        ) : recentTraces.length === 0 ? (
+          <p className="text-xs text-gray-400 italic">
+            No Langfuse traces found — connect Langfuse or run the agent first.
+          </p>
+        ) : (
+          <div className="border border-gray-100 rounded-lg overflow-hidden">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-100">
+                  <th className="text-left px-3 py-1.5 text-gray-500 font-medium w-6">#</th>
+                  <th className="text-left px-3 py-1.5 text-gray-500 font-medium">Time</th>
+                  <th className="text-left px-3 py-1.5 text-gray-500 font-medium">Status</th>
+                  <th className="text-left px-3 py-1.5 text-gray-500 font-medium">Duration</th>
+                  <th className="text-left px-3 py-1.5 text-gray-500 font-medium">Model</th>
+                  <th className="text-right px-3 py-1.5 text-gray-500 font-medium">Tokens</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentTraces.map((t, idx) => (
+                  <tr key={t.id} className="border-b border-gray-100 last:border-b-0 hover:bg-gray-50">
+                    <td className="px-3 py-1.5 text-gray-400">{idx + 1}</td>
+                    <td className="px-3 py-1.5 text-gray-600 whitespace-nowrap">
+                      {new Date(t.timestamp).toLocaleString()}
+                    </td>
+                    <td className="px-3 py-1.5">
+                      <span className={`inline-flex items-center gap-1 font-medium
+                        ${t.status === "success" ? "text-emerald-600" : t.status === "error" ? "text-red-500" : "text-amber-500"}`}>
+                        {t.status === "success" ? "✓" : t.status === "error" ? "✗" : "…"} {t.status}
+                      </span>
+                    </td>
+                    <td className="px-3 py-1.5 text-gray-500">
+                      {t.duration != null ? `${(t.duration / 1000).toFixed(1)}s` : "—"}
+                    </td>
+                    <td className="px-3 py-1.5 font-mono text-gray-500 max-w-[120px] truncate">
+                      {t.model ?? "—"}
+                    </td>
+                    <td className="px-3 py-1.5 text-right text-gray-500">
+                      {t.tokens != null ? t.tokens.toLocaleString() : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {traces.length > 12 && (
+              <div className="text-center py-2 text-xs text-gray-400 bg-gray-50 border-t border-gray-100">
+                Showing 12 of {traces.length} runs
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 function MetaRow({ icon: Icon, label, value }: { icon: typeof Users; label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-start gap-2 text-sm">
@@ -102,6 +426,8 @@ export function AgentDetail() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [invTraces, setInvTraces] = useState<Trace[]>([]);
+  const [invLoading, setInvLoading] = useState(false);
 
   const loadTraces = async (platform: Platform) => {
     if (!agent) return;
@@ -141,6 +467,16 @@ export function AgentDetail() {
     if (agent && agent.platforms.includes(activeTab)) loadTraces(activeTab);
     else { setTraces([]); setError(null); setLoading(false); }
   }, [activeTab, agent?.id, langfuseInstances, langsmithInstances, heliconeInstances, otelInstances]);
+
+  // Background-fetch Langfuse traces for the invocation panel
+  useEffect(() => {
+    if (!agent || !langfuseInstances.length) { setInvTraces([]); return; }
+    setInvLoading(true);
+    Promise.all(langfuseInstances.map(i => fetchLangfuseTraces(i, agent.slug)))
+      .then(r => setInvTraces(r.flat().sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())))
+      .catch(() => {})
+      .finally(() => setInvLoading(false));
+  }, [agent?.id, langfuseInstances]);
 
   if (!agent) {
     return (
@@ -342,6 +678,12 @@ export function AgentDetail() {
         </div>
       </div>
 
+      <MiniAgentGraph
+        agent={agent}
+        allAgents={agents}
+        onNavigate={(id) => navigate(`/agents/${id}`)}
+      />
+
       {(agent.capabilitySpec?.inputs.length || agent.capabilitySpec?.outputs.length || agent.capabilitySpec?.examples.length) ? (
         <div className="bg-white border border-gray-200/80 rounded-2xl p-5 mb-6 shadow-card">
           <h2 className="text-sm font-semibold text-gray-900 mb-3">Structured capability</h2>
@@ -384,6 +726,14 @@ export function AgentDetail() {
           </div>
         )}
       </div>
+
+      <AgentInvocationPanel
+        agent={agent}
+        allAgents={agents}
+        traces={invTraces}
+        loading={invLoading}
+        onNavigate={(id) => navigate(`/agents/${id}`)}
+      />
 
       {/* Security & enforcement */}
       <div className="mb-6">
