@@ -148,15 +148,19 @@ def _report_threat(auth_token: str, agent_id: str, control: str, severity: str, 
     by slug (the plain /api/threats/ endpoint keys on the registry UUID).
     """
     try:
-        httpx.post(
+        resp = httpx.post(
             f"{REGISTRY_URL}/api/capture/threat",
             headers={"Authorization": f"Bearer {auth_token}", "Content-Type": "application/json"},
             json={"agentSlug": agent_id, "control": control, "severity": severity,
                   "summary": summary, "detail": detail, "source": "gateway"},
             timeout=5,
         )
-    except Exception:
-        pass
+        if resp.status_code == 200:
+            logger.info(f"[gateway] Threat reported: {control} for {agent_id}")
+        else:
+            logger.warning(f"[gateway] Threat report failed {resp.status_code}: {resp.text[:200]}")
+    except Exception as e:
+        logger.warning(f"[gateway] Threat report exception: {e}")
 
 
 def _llm_inspect(full_text: str, policy: dict, agent_id: str) -> list[dict]:

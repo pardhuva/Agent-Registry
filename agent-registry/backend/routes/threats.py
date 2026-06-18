@@ -22,6 +22,15 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 
+
+def _utc_iso(dt: datetime | None) -> str:
+    """Return ISO-8601 string always tagged as UTC so the browser converts correctly."""
+    if not dt:
+        return ""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.isoformat()
+
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
@@ -270,7 +279,14 @@ async def scan_fleet(
 
     agent_ids = [a.id for a in agents]
     if agent_ids:
-        await db.execute(sa_delete(ThreatFinding).where(ThreatFinding.agent_id.in_(agent_ids)))
+        # Only wipe posture/scan findings — preserve live gateway & SDK reports
+        # (those have principal starting with "capture:" e.g. "capture:gateway")
+        await db.execute(
+            sa_delete(ThreatFinding).where(
+                ThreatFinding.agent_id.in_(agent_ids),
+                ~ThreatFinding.principal.like("capture:%"),
+            )
+        )
 
     all_threats: list[ThreatFinding] = []
     for agent in agents:
@@ -296,7 +312,7 @@ async def scan_fleet(
         ThreatFindingOut(
             id=t.id, control=t.control, agentId=t.agent_id, severity=t.severity,
             summary=t.summary, detail=t.detail,
-            detectedAt=t.detected_at.isoformat() if t.detected_at else "",
+            detectedAt=_utc_iso(t.detected_at),
             principal=t.principal,
         )
         for t in all_threats
@@ -395,7 +411,7 @@ async def list_threats(
         ThreatFindingOut(
             id=t.id, control=t.control, agentId=t.agent_id, severity=t.severity,
             summary=t.summary, detail=t.detail,
-            detectedAt=t.detected_at.isoformat() if t.detected_at else "",
+            detectedAt=_utc_iso(t.detected_at),
             principal=t.principal,
         )
         for t in result.scalars().all()
@@ -425,7 +441,7 @@ async def create_threat(
     return ThreatFindingOut(
         id=threat.id, control=threat.control, agentId=threat.agent_id,
         severity=threat.severity, summary=threat.summary, detail=threat.detail,
-        detectedAt=threat.detected_at.isoformat() if threat.detected_at else "",
+        detectedAt=_utc_iso(threat.detected_at),
         principal=threat.principal,
     )
 

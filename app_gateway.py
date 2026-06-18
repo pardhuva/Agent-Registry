@@ -123,7 +123,15 @@ editor = Agent(
 )
 
 # ── Tasks (identical to app.py) ───────────────────────────────────────────────
-TOPIC = "About Claude code interpreter and how it compares to other code LLMs and the major models in it"
+# Accept topic from command-line arg or prompt the user interactively.
+import sys as _sys
+if len(_sys.argv) > 1:
+    TOPIC = " ".join(_sys.argv[1:])
+else:
+    TOPIC = input("\nEnter research topic (or press Enter for default):\n> ").strip()
+    if not TOPIC:
+        TOPIC = "About Claude code interpreter and how it compares to other code LLMs"
+print(f"\n[Topic]: {TOPIC}\n")
 
 research_task = Task(
     description=f"Research this topic and list 4-5 key facts:\n{TOPIC}",
