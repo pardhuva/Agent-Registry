@@ -365,7 +365,9 @@ function AgentInvocationPanel({ agent, allAgents, traces, loading, onNavigate }:
                       </span>
                     </td>
                     <td className="px-3 py-1.5 text-gray-500">
-                      {t.duration != null ? `${(t.duration / 1000).toFixed(1)}s` : "—"}
+                      {t.duration != null && t.duration > 0
+                        ? t.duration < 1000 ? `${t.duration}ms` : `${(t.duration / 1000).toFixed(1)}s`
+                        : "—"}
                     </td>
                     <td className="px-3 py-1.5 font-mono text-gray-500 max-w-[120px] truncate">
                       {t.model ?? "—"}

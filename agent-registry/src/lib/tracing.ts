@@ -115,7 +115,7 @@ export async function fetchLangfuseTraces(
     id: t.id as string,
     name: (t.name as string) ?? agentSlug,
     timestamp: t.timestamp as string,
-    duration: t.latency as number | undefined,
+    duration: t.latency != null ? Math.round((t.latency as number) * 1000) : undefined,
     status: (t.level === "ERROR" ? "error" : "success") as Trace["status"],
     input: t.input ? JSON.stringify(t.input) : undefined,
     output: t.output ? JSON.stringify(t.output) : undefined,
