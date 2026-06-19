@@ -627,11 +627,8 @@ async def restore_snapshot(
             setattr(agent, key, data[key])
     for key in ["tags", "platforms", "dependencies", "compliance", "policy",
                 "data_classifications", "access_scope", "capability_spec"]:
-        camel = key
-        if key == "system_prompt":
-            camel = "systemPrompt"
-        if camel in data:
-            setattr(agent, key, data[camel])
+        if key in data:
+            setattr(agent, key, data[key])
     if "systemPrompt" in data:
         agent.system_prompt = data["systemPrompt"]
     if "riskTier" in data:

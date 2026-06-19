@@ -174,13 +174,17 @@ def _parse_findings(raw: str) -> list[dict]:
     obj: Any = None
     try:
         obj = json.loads(text)
-    except Exception:
-        m = re.search(r"\{.*\}", text, re.S)
-        if m:
-            try:
-                obj = json.loads(m.group())
-            except Exception:
-                return []
+    except json.JSONDecodeError:
+        # Walk from first '{' rightward to find the tightest valid JSON object.
+        start = text.find("{")
+        obj = None
+        if start != -1:
+            for end in range(len(text), start, -1):
+                try:
+                    obj = json.loads(text[start:end])
+                    break
+                except json.JSONDecodeError:
+                    continue
     if not isinstance(obj, dict):
         return []
     findings = obj.get("findings", [])

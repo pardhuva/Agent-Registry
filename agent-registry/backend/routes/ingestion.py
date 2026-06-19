@@ -324,11 +324,12 @@ async def pull_all(
         select(LangfuseInstance).where(LangfuseInstance.user_id == user.id)
     )
     if lf_result.scalars().first():
-        await db.execute(select(LangfuseInstance).where(LangfuseInstance.user_id == user.id))
         try:
             results["langfuse"] = await _pull_langfuse_inner(db, user)
-        except Exception as e:
-            results["langfuse"] = {"error": str(e)}
+        except httpx.RequestError:
+            results["langfuse"] = {"error": "Langfuse connection failed"}
+        except Exception:
+            results["langfuse"] = {"error": "Langfuse pull failed"}
 
     # LangSmith
     ls_result = await db.execute(
@@ -337,8 +338,10 @@ async def pull_all(
     if ls_result.scalars().first():
         try:
             results["langsmith"] = await _pull_langsmith_inner(db, user)
-        except Exception as e:
-            results["langsmith"] = {"error": str(e)}
+        except httpx.RequestError:
+            results["langsmith"] = {"error": "LangSmith connection failed"}
+        except Exception:
+            results["langsmith"] = {"error": "LangSmith pull failed"}
 
     return {"platforms": results}
 

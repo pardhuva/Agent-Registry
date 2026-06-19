@@ -13,9 +13,12 @@ traces. The registry sees all of them, so it can correlate across agents:
 """
 from __future__ import annotations
 
+import logging
 import re
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
+
+logger = logging.getLogger(__name__)
 
 
 def _utc_iso(dt: datetime | None) -> str:
@@ -166,7 +169,8 @@ async def model_theft(db: AsyncSession = Depends(get_db), user: User = Depends(g
     for inst in instances:
         try:
             rows.extend(await _pull_principals(inst))
-        except Exception:
+        except Exception as exc:
+            logger.warning("Failed to pull principals from Langfuse instance %r: %s", inst.name, exc)
             continue
     if not rows:
         return {"signals": [], "degraded": True, "reason": "no_traces", "totalQueries": 0}

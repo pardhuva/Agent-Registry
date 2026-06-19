@@ -26,10 +26,11 @@ def _start_gateway():
             return
     except Exception:
         pass
+    log_path = Path(__file__).resolve().parent / "gateway.log"
     _gateway_process = subprocess.Popen(
         [sys.executable, str(gateway_script)],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        stdout=open(log_path, "a"),
+        stderr=subprocess.STDOUT,
     )
 
 

@@ -20,7 +20,10 @@ provider is wired up.
 from __future__ import annotations
 
 import json
+import logging
 from datetime import datetime, timezone
+
+logger = logging.getLogger(__name__)
 
 
 def _utc_iso(dt: datetime | None) -> str:
@@ -209,7 +212,8 @@ async def _scan_content(
     for inst in instances:
         try:
             traces.extend(await _pull_langfuse_trace_content(inst))
-        except Exception:
+        except Exception as exc:
+            logger.warning("Failed to pull traces from Langfuse instance %r: %s", inst.name, exc)
             continue
     meta["tracesPulled"] = len(traces)
     content_traces = [t for t in traces if t["prompt"] or t["response"]]

@@ -23,6 +23,11 @@ router = APIRouter(prefix="/api/capture", tags=["capture"])
 
 GATEWAY_URL = os.getenv("IBASEIT_GATEWAY_URL", "http://localhost:8001")
 
+_PROVIDER_MODELS: dict[str, str] = {
+    "groq": "llama-3.3-70b-versatile",
+    "openai": "gpt-4o-mini",
+}
+
 
 class InstrumentRequest(BaseModel):
     agentSlug: str | None = None
@@ -239,10 +244,12 @@ async def gateway_test_call(
         raise HTTPException(status_code=404, detail="Agent not found")
 
     provider = body.provider.lower()
+    if provider not in _PROVIDER_MODELS:
+        raise HTTPException(status_code=400, detail=f"Unsupported provider '{provider}'")
     provider_key = llm_detect._key("GROQ_API_KEY" if provider == "groq" else "OPENAI_API_KEY")
     if not provider_key:
         raise HTTPException(status_code=400, detail=f"No API key configured for provider '{provider}'")
-    model = "llama-3.3-70b-versatile" if provider == "groq" else "gpt-4o-mini"
+    model = _PROVIDER_MODELS[provider]
 
     # The token the browser sent us is forwarded so the gateway can read policy.
     auth_header = request.headers.get("authorization", "")
@@ -286,11 +293,14 @@ async def gateway_test_call(
             detail = "Request passed policy and reached the model."
         else:
             detail = f"Gateway returned {resp.status_code}: {resp.text[:200]}"
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Gateway unreachable at {GATEWAY_URL}: {e}")
+    except httpx.RequestError:
+        raise HTTPException(status_code=502, detail="Gateway unreachable — check IBASEIT_GATEWAY_URL")
+    except Exception:
+        raise HTTPException(status_code=502, detail="Gateway request failed")
 
-    # Re-read the agent — the gateway will have confirmed instrumentation.
-    await db.refresh(agent)
+    # Re-fetch the agent so the gateway's instrumentation update is reflected.
+    refreshed = await db.execute(select(Agent).where(Agent.id == agent.id))
+    agent = refreshed.scalar_one()
 
     return TestCallResponse(
         ok=status_code in (200, 403),
