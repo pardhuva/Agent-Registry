@@ -212,15 +212,64 @@ function MiniAgentGraph({ agent, allAgents, onNavigate }: {
 }
 
 // ─── Invocation history panel ─────────────────────────────────────────────────
+
+/** Topological sort of the connected subgraph containing `agent`.
+ *  Edge A → B means "A calls B" (A.dependencies.agents includes B.slug).
+ *  Returns agents in execution order (roots first, leaves last).
+ */
 function buildChain(agent: AgentType, allAgents: AgentType[]): AgentType[] {
-  const callers = allAgents.filter(a =>
-    a.id !== agent.id && (a.dependencies?.agents ?? []).includes(agent.slug)
-  );
-  const callees = (agent.dependencies?.agents ?? [])
-    .map(s => allAgents.find(a => a.slug === s))
-    .filter((a): a is AgentType => !!a && a.id !== agent.id);
-  if (!callers.length && !callees.length) return [];
-  return [...callers, agent, ...callees];
+  const bySlug = new Map(allAgents.map(a => [a.slug, a]));
+  const slugOf  = new Map(allAgents.map(a => [a.id,   a.slug]));
+
+  // Collect the reachable subgraph: walk callers (up) and callees (down)
+  const reachable = new Set<string>([agent.id]);
+  const stack     = [agent.id];
+  while (stack.length) {
+    const id = stack.pop()!;
+    const a  = allAgents.find(x => x.id === id);
+    // down: callees
+    for (const slug of a?.dependencies?.agents ?? []) {
+      const callee = bySlug.get(slug);
+      if (callee && !reachable.has(callee.id)) { reachable.add(callee.id); stack.push(callee.id); }
+    }
+    // up: callers
+    const mySlug = slugOf.get(id) ?? "";
+    for (const x of allAgents) {
+      if (!reachable.has(x.id) && (x.dependencies?.agents ?? []).includes(mySlug)) {
+        reachable.add(x.id); stack.push(x.id);
+      }
+    }
+  }
+
+  const sub = allAgents.filter(a => reachable.has(a.id));
+  if (sub.length <= 1) return [];
+
+  // Kahn's algorithm (A → B means A calls B, so B has higher in-degree)
+  const inDeg = new Map<string, number>(sub.map(a => [a.id, 0]));
+  for (const a of sub) {
+    for (const slug of a.dependencies?.agents ?? []) {
+      const callee = bySlug.get(slug);
+      if (callee && reachable.has(callee.id))
+        inDeg.set(callee.id, (inDeg.get(callee.id) ?? 0) + 1);
+    }
+  }
+
+  const queue  = sub.filter(a => (inDeg.get(a.id) ?? 0) === 0);
+  const sorted: AgentType[] = [];
+  while (queue.length) {
+    const curr = queue.shift()!;
+    sorted.push(curr);
+    for (const slug of curr.dependencies?.agents ?? []) {
+      const callee = bySlug.get(slug);
+      if (callee && reachable.has(callee.id)) {
+        const deg = (inDeg.get(callee.id) ?? 1) - 1;
+        inDeg.set(callee.id, deg);
+        if (deg === 0) queue.push(callee);
+      }
+    }
+  }
+
+  return sorted.length > 1 ? sorted : [];
 }
 
 function AgentInvocationPanel({ agent, allAgents, traces, total, loading, onNavigate }: {
@@ -347,7 +396,7 @@ function AgentInvocationPanel({ agent, allAgents, traces, total, loading, onNavi
                   <th className="text-left px-3 py-1.5 text-gray-500 font-medium">Time</th>
                   <th className="text-left px-3 py-1.5 text-gray-500 font-medium">Status</th>
                   <th className="text-left px-3 py-1.5 text-gray-500 font-medium">Duration</th>
-                  <th className="text-left px-3 py-1.5 text-gray-500 font-medium">Model</th>
+                  <th className="text-left px-3 py-1.5 text-gray-500 font-medium">Invoked by</th>
                   <th className="text-right px-3 py-1.5 text-gray-500 font-medium">Tokens</th>
                 </tr>
               </thead>
@@ -369,8 +418,15 @@ function AgentInvocationPanel({ agent, allAgents, traces, total, loading, onNavi
                         ? t.duration < 1000 ? `${t.duration}ms` : `${(t.duration / 1000).toFixed(1)}s`
                         : "—"}
                     </td>
-                    <td className="px-3 py-1.5 font-mono text-gray-500 max-w-[120px] truncate">
-                      {t.model ?? "—"}
+                    <td className="px-3 py-1.5 font-mono text-gray-500 max-w-[140px] truncate"
+                        title={t.invokedBy ?? (callers.length === 1 ? callers[0].slug : callers.map(c => c.slug).join(", ")) || ""}>
+                      {t.invokedBy
+                        ? t.invokedBy
+                        : callers.length === 1
+                          ? <span className="text-emerald-700">{callers[0].slug}</span>
+                          : callers.length > 1
+                            ? <span className="text-emerald-700">{callers.length} callers</span>
+                            : "—"}
                     </td>
                     <td className="px-3 py-1.5 text-right text-gray-500">
                       {t.tokens != null ? t.tokens.toLocaleString() : "—"}

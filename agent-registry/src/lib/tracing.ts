@@ -122,6 +122,7 @@ export async function fetchLangfuseTraces(
     output: t.output ? JSON.stringify(t.output) : undefined,
     tokens: (t.totalTokens as number) ?? undefined,
     model: t.metadata ? (t.metadata as Record<string, unknown>).model as string : undefined,
+    invokedBy: (t.userId as string | undefined) ?? (t.sessionId as string | undefined) ?? undefined,
     platform: "langfuse",
     url: `${instance.hostUrl.replace(/\/$/, "")}/trace/${t.id}`,
   }));

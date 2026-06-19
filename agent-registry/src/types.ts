@@ -207,6 +207,7 @@ export interface Trace {
   output?: string;
   tokens?: number;
   model?: string;
+  invokedBy?: string;
   platform: Platform;
   url?: string;
 }
